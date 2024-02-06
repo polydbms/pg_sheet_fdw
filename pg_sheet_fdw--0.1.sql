@@ -6,7 +6,7 @@
  */
 
 
-CREATE FUNCTION pg-sheet-fdw_handler()
+CREATE FUNCTION pg_sheet_fdw_handler()
 RETURNS fdw_handler
 AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
@@ -16,6 +16,6 @@ RETURNS void
 AS 'MODULE_PATHNAME'
 LANGUAGE C STRICT;
 */
-CREATE FOREIGN DATA WRAPPER pg-sheet-fdw
-  HANDLER pg-sheet-fdw_handler
-/*  VALIDATOR pg-sheet-fdw_validator*/;
+CREATE FOREIGN DATA WRAPPER pg_sheet_fdw
+  HANDLER pg_sheet_fdw_handler
+/*  VALIDATOR pg_sheet_fdw_validator*/;

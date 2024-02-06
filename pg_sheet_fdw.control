@@ -1,4 +1,4 @@
 comment = 'foreign data wrapper for access to SheetReader'
 default_version = '0.1'
 relocatable = true
-module_pathname = '$libdir/pg-sheet-fdw'
+module_pathname = '$libdir/pg_sheet_fdw'
