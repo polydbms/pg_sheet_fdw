@@ -1,0 +1,3 @@
+[submodule "submodules/SheetReader-r"]
+	path = submodules/SheetReader-r
+	url = git@github.com:fhenz/SheetReader-r.git

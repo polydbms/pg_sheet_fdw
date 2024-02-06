@@ -1,3 +1,4 @@
-## Postgres Foreign Data Wrapper for the super fast Sheet Reader!
+## Postgres Foreign Data Wrapper for SheetReader!
 
-have fun!
+This Foreign Data Wrapper gives Postgresql access to SheetReader, which is a fast Excel sheet reader. For the used Postgresql version, take a look at the XDB Postgresql Docker Image.
+
