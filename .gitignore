@@ -1,1 +1,11 @@
 .idea/
+
+# Ignore object files, shared libraries, and LLVM bitcode files
+*.o
+*.so
+*.bc
+
+# Ignore these files in any subdirectory
+**/*.o
+**/*.so
+**/*.bc
