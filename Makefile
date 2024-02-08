@@ -1,6 +1,5 @@
 EXTENSION = pg_sheet_fdw
 MODULE_big = pg_sheet_fdw
-MODULEDIR = pg_sheet_fdw
 DATA = pg_sheet_fdw--0.1.sql
 OBJS = src/*.o
 PG_LIBS = -lpq

@@ -4,3 +4,5 @@ FROM postgresdb:latest
 USER root
 
 RUN apt-get update && apt-get install -qy g++ gdb
+
+USER postgres
