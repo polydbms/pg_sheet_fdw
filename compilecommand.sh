@@ -8,13 +8,23 @@ CONTAINER_NAME="pg_sheet_fdw_test_environment"
 if docker ps -q --filter "name=${CONTAINER_NAME}" | grep -q .; then
     echo "Container ${CONTAINER_NAME} is already running."
 else
-    # Start the container in detached mode
-    if docker run -d --name ${CONTAINER_NAME} pg_sheet_fdw; then
-        echo "Container ${CONTAINER_NAME} started."
-    else
-        echo "Failed to start container ${CONTAINER_NAME}. Perhaps you haven't built the image yet? Exiting..."
-        exit 1
-    fi
+    if docker ps -a -q --filter "name=${CONTAINER_NAME}" | grep -q .; then
+            # Container exists but is stopped, start it
+            if docker start ${CONTAINER_NAME}; then
+                echo "Container ${CONTAINER_NAME} started."
+            else
+                echo "Failed to start container ${CONTAINER_NAME}. Exiting..."
+                exit 1
+            fi
+        else
+            # Container doesn't exist, create and start a new one
+            if docker run -d --name ${CONTAINER_NAME} pg_sheet_fdw; then
+                echo "Container ${CONTAINER_NAME} started."
+            else
+                echo "Failed to start container ${CONTAINER_NAME}. Perhaps you haven't built the image yet? Exiting..."
+                exit 1
+            fi
+        fi
 fi
 
 # Replace relevant files
