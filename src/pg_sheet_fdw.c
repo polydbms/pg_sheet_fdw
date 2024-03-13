@@ -50,6 +50,8 @@ Datum pg_sheet_fdw_handler(PG_FUNCTION_ARGS){
 void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid){
     baserel->rows = 2;
     elog_debug("%s",__func__);
+    unsigned long test = registerExcelFileAndSheetAsTable("/pg_sheet_fdw/test/joel_test.xlsx", "encoding", 0);
+    elog_debug("Got row count: %lu",test);
 }
 
 /*
@@ -121,6 +123,34 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
 TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     elog_debug("%s",__func__);
 
+    unsigned long test = startNextRow(0);
+    elog_debug("startNextRow column count: %lu", test);
+    for(unsigned long i = 0; i < test; i++){
+        elog_debug("getting next cell!");
+        struct PGExcelCell cell = getNextCell(0);
+        elog_debug("got next cell!");
+        switch (cell.type) {
+            case T_STRING:
+            case T_STRING_INLINE:
+            case T_STRING_REF:
+                elog_debug("Cell %lu with content: %s", i, cell.data.string);
+                free(cell.data.string);
+                break;
+            case T_BOOLEAN:
+                elog_debug("Cell %lu with boolean: %d", i, cell.data.boolean);
+                break;
+            case T_NUMERIC:
+                elog_debug("Cell %lu with number: %f", i, cell.data.real);
+                break;
+            case T_DATE:
+                elog_debug("Cell %lu with date: %f", i, cell.data.real);
+                break;
+            default:
+                elog_debug("Some Error in struct from getNextCell()");
+                break;
+        }
+    }
+    //TODO read the received excel strings into tuples
     TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
     TupleDesc tDescFromNode = node->ss.ss_currentRelation->rd_att;
     HeapTuple tuple;
