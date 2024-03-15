@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Custom c++ functions and structs
 enum PGExcelCellType {

@@ -11,11 +11,14 @@ CREATE SERVER IF NOT EXISTS dummy
 -- We need a schema for postgres, so it knows, what data to expect.
 -- For that we create a Foreign table.
 CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
-    cell1       varchar,
-    cell2       varchar,
+    cell1       bigint,
+    cell2       bigint,
     cell3       varchar
     ) SERVER dummy
-    OPTIONS (filepath '/pg_sheet_fdw/test/string_test.xlsx', sheetname 'encoding');
+    OPTIONS (filepath '/pg_sheet_fdw/test/numeric_test.xlsx', sheetname 'encoding');
+
+-- Select everything
+SELECT * FROM randomTestTable;
 
 -- Drop anything
 DROP FOREIGN TABLE IF EXISTS randomTestTable;

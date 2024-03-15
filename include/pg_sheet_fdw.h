@@ -14,6 +14,7 @@
 #include "optimizer/planmain.h"
 #include "optimizer/restrictinfo.h"
 #include "access/tupdesc.h"
+#include "commands/defrem.h"
 
 #include "utils/memutils.h"
 #include "utils/builtins.h"
@@ -92,6 +93,9 @@ void pg_sheet_fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid for
 ForeignScan *
 pg_sheet_fdwGetForeignPlan(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid, ForeignPath *best_path,
                            List *tlist, List *scan_clauses, Plan *outer_plan);
+
+//helper functions
+static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname);
 
 
 #endif //pg_sheet_fdw_H
