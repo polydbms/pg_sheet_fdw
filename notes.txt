@@ -63,3 +63,25 @@ Explanation from the pg makefile, that gets used for compilation. Maybe helpful:
 #     your PATH)
 #
 # Better look at some of the existing uses for examples...
+
+
+SELECT typname, oid, typlen, format_type(oid, NULL) AS sql_name
+FROM pg_type
+WHERE format_type(oid, NULL) = 'integer' OR format_type(oid, NULL) = 'bigint' OR format_type(oid, NULL) = 'date' OR typname = 'timestamp' OR typname = 'varchar' or typname = 'numeric' OR format_type(oid, NULL) = 'smallint' OR format_type(oid, NULL) = 'real' OR format_type(oid, NULL) = 'double precision' OR typname = 'time' OR format_type(oid, NULL) = 'text' OR typname = 'bool';
+  typname  | oid  | typlen |          sql_name
+-----------+------+--------+-----------------------------
+ bool      |   16 |      1 | boolean
+ char      |   18 |      1 | "char"
+ int8      |   20 |      8 | bigint
+ int2      |   21 |      2 | smallint
+ int4      |   23 |      4 | integer
+ text      |   25 |     -1 | text
+ float4    |  700 |      4 | real
+ float8    |  701 |      8 | double precision
+ bpchar    | 1042 |     -1 | character
+ varchar   | 1043 |     -1 | character varying
+ date      | 1082 |      4 | date
+ time      | 1083 |      8 | time without time zone
+ timestamp | 1114 |      8 | timestamp without time zone
+ numeric   | 1700 |     -1 | numeric
+

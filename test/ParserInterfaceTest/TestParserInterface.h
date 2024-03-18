@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // Custom c++ functions and structs
 enum PGExcelCellType {
@@ -33,6 +34,7 @@ extern int getTestInt();
 extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
 extern unsigned long startNextRow(unsigned int tableOID);
 extern struct PGExcelCell getNextCell(unsigned int tableOID);
+extern void dropTable(unsigned int tableOID);
 
 
 // test functions

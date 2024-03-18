@@ -5,7 +5,7 @@
 #include "TestParserInterface.h"
 
 
-int main(int argc, char** argv){
+int main(int argc, char** argv){;
     if(argc < 2 || argc > 3) {
         printf("Wrong number of arguments!\n");
         printf("Usage:\n");
@@ -59,11 +59,13 @@ int main(int argc, char** argv){
                     printf("Cell %lu with date: %f\n", i, cell.data.real);
                     break;
                 default:
+                    printf("Cell %lu with no content? Code: %d\n", i, cell.type);
                     break;
             }
         }
         columnCount = startNextRow(id);
         printf("NextRow column count: %lu\n", columnCount);
     }
+    dropTable(id);
     return 0;
 }

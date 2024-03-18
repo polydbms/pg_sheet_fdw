@@ -12,6 +12,7 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
     try {
         // first check, if already registered on the id. Also check for same names if already registered.
 
+
         // then register with standard settings
         SheetReaderSettings settings;
         settings.filePath = pathToFile;
@@ -89,8 +90,8 @@ PGExcelCell getNextCell(unsigned int tableOID){
 PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
     PGExcelCell cCell{};
     switch(cell.type) {
-        case CellType::T_NUMERIC:
         case CellType::T_DATE:
+        case CellType::T_NUMERIC:
             cCell.data.real = cell.data.real;
             break;
         case CellType::T_STRING_REF:
@@ -109,4 +110,9 @@ PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
     }
     cCell.type = static_cast<PGExcelCellType>(cell.type);
     return cCell;
+}
+
+
+void dropTable(unsigned int tableOID){
+    ParserInterfaceSettingsMap.erase(tableOID);
 }

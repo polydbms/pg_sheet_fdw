@@ -13,7 +13,7 @@ CREATE SERVER IF NOT EXISTS dummy
 CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
     cell1       varchar,
     cell2       varchar,
-    cell3       varchar
+    cell3       char
     ) SERVER dummy
     OPTIONS (filepath '/pg_sheet_fdw/test/string_test.xlsx', sheetname 'encoding');
 

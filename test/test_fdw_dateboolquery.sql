@@ -11,8 +11,9 @@ CREATE SERVER IF NOT EXISTS dummy
 -- We need a schema for postgres, so it knows, what data to expect.
 -- For that we create a Foreign table.
 CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
-    cell1       timestamp,
-    cell2       boolean
+    cell1       date,
+    cell2       timestamp,
+    cell3       boolean
     ) SERVER dummy
     OPTIONS (filepath '/pg_sheet_fdw/test/datebool_test.xlsx', sheetname 'encoding');
 

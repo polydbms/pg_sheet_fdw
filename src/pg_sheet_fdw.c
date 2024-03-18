@@ -53,7 +53,7 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     char *filepath;
     char *sheetname;
     pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname);
-    unsigned long test = registerExcelFileAndSheetAsTable(filepath, sheetname, 0);
+    unsigned long test = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid);
     elog_debug("Got row count: %lu",test);
     baserel->rows = (double) test;
 }
@@ -118,15 +118,16 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
 TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     elog_debug("%s",__func__);
 
+    TupleDesc tupdesc = node->ss.ss_ScanTupleSlot->tts_tupleDescriptor;
+
+    unsigned int foreigntableid = node->ss.ss_currentRelation->rd_id;
+
     TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
     TupleDesc tDescFromNode = node->ss.ss_currentRelation->rd_att;
     HeapTuple tuple;
 
-    //TODO read the received excel strings into tuples
-    //TODO replace id 0 with tableOID (where to get it here?)
-
     // set iterator to next excel row and read column count
-    unsigned long columnCount = startNextRow(0);
+    unsigned long columnCount = startNextRow(foreigntableid);
     elog_debug("startNextRow column count: %lu", columnCount);
     // no more rows to read? finish
     if(columnCount == 0) return NULL;
@@ -135,37 +136,81 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     bool *isnull = (bool *) palloc(sizeof(bool) * columnCount);
     // fill tuple with cells
     for(unsigned long i = 0; i < columnCount; i++){
-        elog_debug("getting next cell!");
-        struct PGExcelCell cell = getNextCell(0);
+        Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
+        Oid pgType = attr->atttypid;
+        char *pgTypeName = format_type_be(pgType);
+        elog_debug("Column has PostgreSQL type: %s", pgTypeName);
+        elog_debug("getting corresponding cell!");
+        struct PGExcelCell cell = getNextCell(foreigntableid);
         elog_debug("got next cell!");
         switch (cell.type) {
             case T_STRING:
             case T_STRING_INLINE:
             case T_STRING_REF:
                 elog_debug("Cell %lu with content: %s", i, cell.data.string);
+                if(pgType != 25 && pgType != 1043 && pgType != 18 && pgType != 1042) {
+                    elog_debug("Mismatching type! pgType = %d", pgType);
+                    isnull[i] = true;
+                    break;
+                }
                 columns[i] = CStringGetTextDatum(cell.data.string);
                 isnull[i] = false;
                 free(cell.data.string);
                 break;
             case T_BOOLEAN:
                 elog_debug("Cell %lu with boolean: %d", i, cell.data.boolean);
+                if(pgType != 16) {
+                    elog_debug("Mismatching type!");
+                    isnull[i] = true;
+                    break;
+                }
                 columns[i] = BoolGetDatum(cell.data.boolean);
                 isnull[i] = false;
                 break;
-            case T_NUMERIC: //TODO convert number to pg number. Probably function needed. Trivial for integers, not trivial for the rest.
+            case T_NUMERIC: //TODO implement numeric logic. implement float logic.
                 elog_debug("Cell %lu with number: %f", i, cell.data.real);
-                // for now assume bigint from postgres (64bit integer)
-                columns[i] = Int64GetDatum((long) cell.data.real);
+                if(pgType == 21) { //smallint
+                    long data = (long) cell.data.real;
+                    if(data > 32767) data = 32767;
+                    else if(data < -32768) data = -32768;
+                    columns[i] = Int16GetDatum(data);
+                }
+                else if(pgType == 23) { //integer
+                    long data = (long) cell.data.real;
+                    if(data > 2147483647) data = 2147483647;
+                    else if(data < -2147483648) data = -2147483648;
+                    columns[i] = Int32GetDatum(data);
+                }
+                else if(pgType == 20) //bigint
+                    columns[i] = Int64GetDatum((long) cell.data.real);
+//                else if(pgType == 700) //real
+//                    ;
+//                else if(pgType == 701) //double precision
+//                    ;
+//                else if(pgType == 1700) //numeric/decimal
+//                    ;
+                else{
+                    elog_debug("Mismatching type!");
+                    isnull[i] = true;
+                    break;
+                }
                 isnull[i] = false;
                 break;
-            case T_DATE: //TODO function to convert between date formats.
+            case T_DATE:
                 elog_debug("Cell %lu with date: %f", i, cell.data.real);
-                // for now assume timestamp
-                columns[i] = TimeADTGetDatum(cell.data.real);
+                if(pgType == 1082) // date
+                    columns[i] = DateADTGetDatum(DirectFunctionCall1(timestamp_date,(cell.data.real-946684800) * 1000000));
+                else if(pgType == 1114) // timestamp
+                    columns[i] = TimeADTGetDatum((cell.data.real-946684800) * 1000000); // convert unix (seconds since 1970) to pg timestamp (microseconds since 2000)
+                else {
+                    elog_debug("Mismatching type!");
+                    isnull[i] = true;
+                    break;
+                }
                 isnull[i] = false;
                 break;
             default: // T_BLANK or T_ERROR
-                elog_debug("Some Error in struct from getNextCell()");
+                elog_debug("Blank or Error in struct from getNextCell()");
                 isnull[i] = true;
                 break;
         }
@@ -189,6 +234,8 @@ void pg_sheet_fdwReScanForeignScan(ForeignScanState *node){elog_debug("%s",__fun
  */
 void pg_sheet_fdwEndForeignScan(ForeignScanState *node){
     elog_debug("%s", __func__);
+    unsigned int foreigntableid = node->ss.ss_currentRelation->rd_id;
+    dropTable(foreigntableid);
 }
 
 /*

@@ -76,6 +76,7 @@ extern int getTestInt();
 extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
 extern unsigned long startNextRow(unsigned int tableOID);
 extern struct PGExcelCell getNextCell(unsigned int tableOID);
+extern void dropTable(unsigned int tableOID);
 
 // FDW callback routines
 void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags);
