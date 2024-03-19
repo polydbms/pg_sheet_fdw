@@ -167,7 +167,7 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
                 columns[i] = BoolGetDatum(cell.data.boolean);
                 isnull[i] = false;
                 break;
-            case T_NUMERIC: //TODO implement numeric logic. implement float logic.
+            case T_NUMERIC:
                 elog_debug("Cell %lu with number: %f", i, cell.data.real);
                 if(pgType == 21) { //smallint
                     long data = (long) cell.data.real;
@@ -183,12 +183,12 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
                 }
                 else if(pgType == 20) //bigint
                     columns[i] = Int64GetDatum((long) cell.data.real);
-//                else if(pgType == 700) //real
-//                    ;
-//                else if(pgType == 701) //double precision
-//                    ;
-//                else if(pgType == 1700) //numeric/decimal
-//                    ;
+                else if(pgType == 700) //real
+                    columns[i] = Float4GetDatum(cell.data.real);
+                else if(pgType == 701) //double precision
+                    columns[i] = Float8GetDatum(cell.data.real);
+                else if(pgType == 1700) //numeric/decimal
+                    columns[i] = DirectFunctionCall1(float8_numeric, Float8GetDatum(cell.data.real));
                 else{
                     elog_debug("Mismatching type!");
                     isnull[i] = true;
