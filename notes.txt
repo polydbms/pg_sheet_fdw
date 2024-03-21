@@ -65,6 +65,9 @@ Explanation from the pg makefile, that gets used for compilation. Maybe helpful:
 # Better look at some of the existing uses for examples...
 
 
+
+
+
 SELECT typname, oid, typlen, format_type(oid, NULL) AS sql_name
 FROM pg_type
 WHERE format_type(oid, NULL) = 'integer' OR format_type(oid, NULL) = 'bigint' OR format_type(oid, NULL) = 'date' OR typname = 'timestamp' OR typname = 'varchar' or typname = 'numeric' OR format_type(oid, NULL) = 'smallint' OR format_type(oid, NULL) = 'real' OR format_type(oid, NULL) = 'double precision' OR typname = 'time' OR format_type(oid, NULL) = 'text' OR typname = 'bool';
@@ -85,3 +88,77 @@ WHERE format_type(oid, NULL) = 'integer' OR format_type(oid, NULL) = 'bigint' OR
  timestamp | 1114 |      8 | timestamp without time zone
  numeric   | 1700 |     -1 | numeric
 
+
+
+
+Get overview of all tables and foreign tables with options:
+
+ SELECT c.relname AS "Table",
+        CASE WHEN c.relkind = 'r' THEN 'ordinary table'
+             WHEN c.relkind = 'v' THEN 'view'
+             WHEN c.relkind = 'm' THEN 'materialized view'
+             WHEN c.relkind = 'f' THEN 'foreign table'
+             ELSE 'other' END AS "Type",
+        pg_size_pretty(pg_total_relation_size(c.oid)) AS "Size",
+         ft.ftoptions as "fdw options"
+ FROM pg_catalog.pg_class c
+ JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_foreign_table as ft ON c.oid = ft.ftrelid
+ WHERE c.relkind IN ('r', 'v', 'm', 'f')
+ AND n.nspname NOT IN ('information_schema', 'pg_catalog')
+ ORDER BY n.nspname, c.relname;
+
+
+
+
+
+CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_lineitem(
+    l_orderkey      bigint,
+    l_partkey       integer,
+    l_suppkey       integer,
+    l_linenumber    integer,
+    l_quantity      numeric(12,2),
+    l_extendedprice numeric(12,2),
+    l_discount      numeric(12,2),
+    l_tax           numeric(12,2),
+    l_returnflag    char(1),
+    l_linestatus    char(1),
+    l_shipdate      date,
+    l_commitdate    date,
+    l_receiptdate   date,
+    l_shipinstruct  char(25),
+    l_shipmode      char(10),
+    l_comment       varchar(44)
+) SERVER dummy
+OPTIONS (filepath '/pg_sheet_fdw/test/sf0001/lineitem.xlsx', sheetname '');
+
+CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_customer  ( C_CUSTKEY INTEGER,
+    C_NAME        VARCHAR(25) NOT NULL,
+    C_ADDRESS     VARCHAR(40) NOT NULL,
+    C_NATIONKEY   INTEGER NOT NULL,
+    C_PHONE       CHAR(15) NOT NULL,
+    C_ACCTBAL     DECIMAL(15,2)   NOT NULL,
+    C_MKTSEGMENT  CHAR(10) NOT NULL,
+    C_COMMENT     VARCHAR(117) NOT NULL) SERVER dummy
+                                        OPTIONS (filepath '/pg_sheet_fdw/test/sf0001/customer.xlsx', sheetname '');
+
+
+-- TPC-H Query 3
+
+select l.l_orderkey,
+       sum( l.l_extendedprice * (1 - l.l_discount )) as revenue,
+       o.o_orderdate,
+       o.o_shippriority
+  from sheet_sf0001_customer as c,
+       pg1_sf0001_orders as o,
+       sheet_sf0001_lineitem as l
+where 1 = 1
+  and c.c_custkey = o.o_custkey
+  and l.l_orderkey = o.o_orderkey
+  and c.c_mktsegment = 'BUILDING'
+  and o.o_orderdate < date '1995-03-15'
+  and l.l_shipdate > date '1995-03-15'
+group by l.l_orderkey,
+         o.o_orderdate,
+         o.o_shippriority
+order by sum( l.l_extendedprice * (1 - l.l_discount )) desc,
+         o.o_orderdate;

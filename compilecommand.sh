@@ -1,8 +1,17 @@
 #! /bin/bash
 # This script starts the docker container, copies over all installation files and runs the compilation and installation.
 
-# Specify the container name
+# Specify the container and image name
 CONTAINER_NAME="pg_sheet_fdw_test_environment"
+IMAGE_NAME="pg_sheet_fdw"
+
+if docker images "$IMAGE_NAME" | grep -q "$IMAGE_NAME"; then
+    echo "Docker image $IMAGE_NAME exists. Skipping building."
+else
+    echo "Docker image $IMAGE_NAME does not exist. Building image."
+    cd docker && make && cd ..
+fi
+
 
 # Check if the container is running
 if docker ps -q --filter "name=${CONTAINER_NAME}" | grep -q .; then
@@ -18,7 +27,7 @@ else
             fi
         else
             # Container doesn't exist, create and start a new one
-            if docker run -d --name ${CONTAINER_NAME} pg_sheet_fdw; then
+            if docker run -d --name ${CONTAINER_NAME} -v test-data:/data pg_sheet_fdw; then
                 echo "Container ${CONTAINER_NAME} started."
             else
                 echo "Failed to start container ${CONTAINER_NAME}. Perhaps you haven't built the image yet? Exiting..."

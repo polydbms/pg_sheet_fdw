@@ -2,7 +2,6 @@
 CREATE EXTENSION IF NOT EXISTS pg_sheet_fdw;
 
 -- Create dummy server (does not exist)
--- The options could be important for the SheetReader
 CREATE SERVER IF NOT EXISTS dummy
     FOREIGN DATA WRAPPER pg_sheet_fdw;
 

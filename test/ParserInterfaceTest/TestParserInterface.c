@@ -40,9 +40,6 @@ int main(int argc, char** argv){;
                 case T_STRING_INLINE:
                 case T_STRING_REF:
                     printf("Cell %lu with content: %s\n", i, cell.data.string);
-                    double t;
-                    sscanf(cell.data.string, "%lf", &t);
-                    printf("Conversion to double: %lf\n", t);
                     free(cell.data.string);
                     break;
                 case T_BOOLEAN:
@@ -52,8 +49,6 @@ int main(int argc, char** argv){;
                     break;
                 case T_NUMERIC:
                     printf("Cell %lu with number: %f\n", i, cell.data.real);
-                    long f = cell.data.real;
-                    printf("cast to int: %ld\n", f);
                     break;
                 case T_DATE:
                     printf("Cell %lu with date: %f\n", i, cell.data.real);

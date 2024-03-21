@@ -36,7 +36,7 @@
 
 
 // Debug mode flag
-#define DEBUG
+//#define DEBUG
 
 /* Macro to make conditional DEBUG more terse
  * Usage: elog(String); output can be found in console */
