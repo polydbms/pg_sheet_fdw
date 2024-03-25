@@ -14,6 +14,7 @@ COPY Makefile /pg_sheet_fdw/
 COPY src /pg_sheet_fdw/src
 COPY include /pg_sheet_fdw/include
 COPY submodules /pg_sheet_fdw/submodules
+COPY test /pg_sheet_fdw/test
 
 # Run installation commands
 RUN echo "Installing pg_sheet_fdw." \

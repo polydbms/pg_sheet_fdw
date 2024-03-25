@@ -34,8 +34,6 @@ fi
 
 # Running tests
 echo "==========[ Testing time."
-docker exec -u 0 ${CONTAINER_NAME} rm -rf /pg_sheet_fdw/test
-docker cp ./test ${CONTAINER_NAME}:/pg_sheet_fdw/test
 docker exec -u 0 ${CONTAINER_NAME} bash -c 'chmod -R +x /pg_sheet_fdw/test'
 docker exec ${CONTAINER_NAME} bash -c 'cd /pg_sheet_fdw/test && ./test_fdw_runall.sh'
 
