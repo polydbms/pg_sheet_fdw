@@ -8,17 +8,17 @@ for file in ./*.sql; do
     filename=$(basename -- "$file")
     filename_no_ext="${filename%.*}"
 
-    echo "Executing ${filename_no_ext}.sql..."
+    echo "==========[ Executing ${filename_no_ext}.sql..."
 
     # Run the SQL file using psql
-    psql -f "${file}"
+    psql --echo-errors -v ON_ERROR_STOP=on -f "${file}"
 
-    # Check if psql command succeeded
+    # Check if there are any error messages in the output
     if [ $? -eq 0 ]; then
-        echo "Successfully executed ${filename_no_ext}.sql"
+        echo "==========[ Successfully executed ${filename_no_ext}.sql"
     else
-        echo "Error executing ${filename_no_ext}.sql"
-        # Exit the loop if an error occurs
+        echo "==========[ Error executing ${filename_no_ext}.sql"
+        exit 1
         break
     fi
 done
