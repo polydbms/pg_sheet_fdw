@@ -32,6 +32,8 @@ else
         fi
 fi
 
+sleep 5
+
 # Running tests
 echo "==========[ Testing time."
 docker exec -u 0 ${CONTAINER_NAME} bash -c 'chmod -R +x /pg_sheet_fdw/test'
