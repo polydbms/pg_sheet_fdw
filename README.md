@@ -15,6 +15,6 @@ The resulting Image has the tag pg_sheet_fdw. The Docker Image is based on the X
 
 ## Docker Testing Environment
 
-Running the compilecommand.sh builds the Docker Image, starts a container called pg_sheet_fdw_test_environment and performs tests on it.
+Running the compilecommand.sh script builds the Docker Image, starts a container called pg_sheet_fdw_test_environment and performs tests on it.
 Afterwards, the container is still running and can be further inspected and used for custom tests.
 
