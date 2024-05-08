@@ -37,8 +37,6 @@ extern "C"
         enum PGExcelCellType type;
     };
 
-    int getTestInt();
-
     unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
     unsigned long startNextRow(unsigned int tableOID);
     struct PGExcelCell getNextCell(unsigned int tableOID);

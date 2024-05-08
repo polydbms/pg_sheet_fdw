@@ -66,11 +66,15 @@ Explanation from the pg makefile, that gets used for compilation. Maybe helpful:
 
 
 
-
+===========================================================  get oid for postgresql datatypes
 
 SELECT typname, oid, typlen, format_type(oid, NULL) AS sql_name
 FROM pg_type
 WHERE format_type(oid, NULL) = 'integer' OR format_type(oid, NULL) = 'bigint' OR format_type(oid, NULL) = 'date' OR typname = 'timestamp' OR typname = 'varchar' or typname = 'numeric' OR format_type(oid, NULL) = 'smallint' OR format_type(oid, NULL) = 'real' OR format_type(oid, NULL) = 'double precision' OR typname = 'time' OR format_type(oid, NULL) = 'text' OR typname = 'bool';
+
+
+Result:
+
   typname  | oid  | typlen |          sql_name
 -----------+------+--------+-----------------------------
  bool      |   16 |      1 | boolean
@@ -91,7 +95,7 @@ WHERE format_type(oid, NULL) = 'integer' OR format_type(oid, NULL) = 'bigint' OR
 
 
 
-Get overview of all tables and foreign tables with options:
+======================================================  Get overview of all tables and foreign tables with options:
 
  SELECT c.relname AS "Table",
         CASE WHEN c.relkind = 'r' THEN 'ordinary table'
@@ -109,8 +113,16 @@ Get overview of all tables and foreign tables with options:
 
 
 
+========================================================    Foreign table for pg_sheet_fdw
 
+-- Create fdw extension
+CREATE EXTENSION IF NOT EXISTS pg_sheet_fdw;
 
+-- Create dummy server (does not exist)
+CREATE SERVER IF NOT EXISTS "sheetserver"
+    FOREIGN DATA WRAPPER pg_sheet_fdw;
+
+-- Create foreign tables for sheets
 CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_lineitem(
     l_orderkey      bigint,
     l_partkey       integer,
@@ -128,8 +140,9 @@ CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_lineitem(
     l_shipinstruct  char(25),
     l_shipmode      char(10),
     l_comment       varchar(44)
-) SERVER dummy
+) SERVER sheetserver
 OPTIONS (filepath '/pg_sheet_fdw/test/sf0001/lineitem.xlsx', sheetname '');
+
 
 CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_customer  ( C_CUSTKEY INTEGER,
     C_NAME        VARCHAR(25) NOT NULL,
@@ -138,8 +151,11 @@ CREATE FOREIGN TABLE IF NOT EXISTS sheet_sf0001_customer  ( C_CUSTKEY INTEGER,
     C_PHONE       CHAR(15) NOT NULL,
     C_ACCTBAL     DECIMAL(15,2)   NOT NULL,
     C_MKTSEGMENT  CHAR(10) NOT NULL,
-    C_COMMENT     VARCHAR(117) NOT NULL) SERVER dummy
+    C_COMMENT     VARCHAR(117) NOT NULL) SERVER sheetserver
                                         OPTIONS (filepath '/pg_sheet_fdw/test/sf0001/customer.xlsx', sheetname '');
+
+
+
 
 
 -- TPC-H Query 3
@@ -152,9 +168,9 @@ select l.l_orderkey,
        pg1_sf0001_orders as o,
        sheet_sf0001_lineitem as l
 where 1 = 1
-  and c.c_custkey = o.o_custkey
+  and c.C_CUSTKEY = o.o_custkey
   and l.l_orderkey = o.o_orderkey
-  and c.c_mktsegment = 'BUILDING'
+  and c.C_MKTSEGMENT = 'BUILDING'
   and o.o_orderdate < date '1995-03-15'
   and l.l_shipdate > date '1995-03-15'
 group by l.l_orderkey,
@@ -162,3 +178,38 @@ group by l.l_orderkey,
          o.o_shippriority
 order by sum( l.l_extendedprice * (1 - l.l_discount )) desc,
          o.o_orderdate;
+
+
+=============================================================================================================
+
+How to prove the tuples as virtual tuples!! The string gets copied (as everything else), so i can give any cstring address.
+
+void provideVirtualTuple(ForeignScanState *node, int integerValue, double doubleValue, const char *stringValue) {
+    // Obtain the TupleTableSlot from the ForeignScanState
+    TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
+    TupleDesc tupleDesc = slot->tts_tupleDescriptor;
+
+    // Prepare the data arrays
+    Datum *columns = palloc0(sizeof(Datum) * tupleDesc->natts);
+    bool *isNull = palloc0(sizeof(bool) * tupleDesc->natts);
+
+    // Populate the data arrays
+    columns[0] = Int32GetDatum(integerValue); // Integer
+    columns[1] = Float8GetDatum(doubleValue); // Double
+    columns[2] = CStringGetTextDatum(stringValue); // String
+
+    // Set null indicators (false since none of the values are null)
+    isNull[0] = false;
+    isNull[1] = false;
+    isNull[2] = false;
+
+    // Clear the slot
+    ExecClearTuple(slot);
+
+    // Store the virtual tuple in the slot
+    slot->tts_values = columns;
+    slot->tts_isnull = isNull;
+
+    // Mark the slot as containing a virtual tuple
+    ExecStoreVirtualTuple(slot);
+}

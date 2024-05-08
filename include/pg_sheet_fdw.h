@@ -36,7 +36,7 @@
 
 
 // Debug mode flag
-//#define DEBUG
+#define DEBUG
 
 /* Macro to make conditional DEBUG more terse
  * Usage: elog(String); output can be found in console */
@@ -72,7 +72,6 @@ struct PGExcelCell {
     } data;
     enum PGExcelCellType type;
 };
-extern int getTestInt();
 extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
 extern unsigned long startNextRow(unsigned int tableOID);
 extern struct PGExcelCell getNextCell(unsigned int tableOID);

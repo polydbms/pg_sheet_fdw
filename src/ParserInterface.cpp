@@ -4,10 +4,6 @@
 
 #include "ParserInterface.h"
 
-int getTestInt(){
-    return 5;
-}
-
 unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID){
     try {
         // first check, if already registered on the id. Also check for same names if already registered.

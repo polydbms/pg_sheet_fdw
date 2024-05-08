@@ -69,8 +69,8 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
 void pg_sheet_fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid){
     elog_debug("%s",__func__);
 
-    Cost startup_cost = 25;
-    Cost total_cost = 25;
+    Cost startup_cost = 0;
+    Cost total_cost = baserel->rows;
     add_path(baserel,(Path *) create_foreignscan_path(root, baserel, NULL, baserel->rows, startup_cost, total_cost, NIL, NULL, NULL, NULL));
 }
 
@@ -118,13 +118,10 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
 TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     elog_debug("%s",__func__);
 
-    TupleDesc tupdesc = node->ss.ss_ScanTupleSlot->tts_tupleDescriptor;
-
     unsigned int foreigntableid = node->ss.ss_currentRelation->rd_id;
 
     TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
-    TupleDesc tDescFromNode = node->ss.ss_currentRelation->rd_att;
-    HeapTuple tuple;
+    TupleDesc tupdesc = slot->tts_tupleDescriptor;
 
     // set iterator to next excel row and read column count
     unsigned long columnCount = startNextRow(foreigntableid);
@@ -133,7 +130,7 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     if(columnCount == 0) return NULL;
     // prepare tuple data structure
     Datum *columns = (Datum *) palloc0(sizeof(Datum) * columnCount);
-    bool *isnull = (bool *) palloc(sizeof(bool) * columnCount);
+    bool *isnull = (bool *) palloc0(sizeof(bool) * columnCount);
     // fill tuple with cells
     for(unsigned long i = 0; i < columnCount; i++){
         Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
@@ -215,10 +212,11 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
                 break;
         }
     }
-    tuple = heap_form_tuple(tDescFromNode, columns, isnull);
-    ExecClearTuple(slot);
     elog_debug("Store tuple in TupleTableSlot");
-    ExecStoreHeapTuple(tuple, slot, false);
+    ExecClearTuple(slot);
+    slot->tts_values = columns;
+    slot->tts_isnull = isnull;
+    ExecStoreVirtualTuple(slot);
     return slot;
 }
 
