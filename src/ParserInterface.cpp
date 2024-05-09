@@ -69,7 +69,7 @@ unsigned long startNextRow(unsigned int tableOID){
     }
 }
 
-// IMPORTANT. AFTER USAGE, FREE THE STRING COMPONENT! ( NOT PALLOCED BUT MALLOCED)
+// copies all values of the next cell into a new PGExcelCell
 PGExcelCell getNextCell(unsigned int tableOID){
     try {
         const XlsxCell &cell = ParserInterfaceSettingsMap[tableOID].currentRow->second[ParserInterfaceSettingsMap[tableOID].cellIt];
@@ -83,6 +83,17 @@ PGExcelCell getNextCell(unsigned int tableOID){
     }
 }
 
+// returns a pointer on the next cell
+PGExcelCell *getNextCellCast(unsigned int tableOID){
+    try {
+        PGExcelCell *nextCell = (PGExcelCell *)&(ParserInterfaceSettingsMap[tableOID].currentRow->second[ParserInterfaceSettingsMap[tableOID].cellIt]);
+        ParserInterfaceSettingsMap[tableOID].cellIt++;
+        return nextCell;
+    } catch (...) {
+        return nullptr;
+    }
+}
+
 PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
     PGExcelCell cCell{};
     switch(cell.type) {
@@ -91,11 +102,9 @@ PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
             cCell.data.real = cell.data.real;
             break;
         case CellType::T_STRING_REF:
-            cCell.data.string = strdup(ParserInterfaceSettingsMap[tableOID].file->getString(cell.data.integer).c_str());
-            break;
         case CellType::T_STRING:
         case CellType::T_STRING_INLINE:
-            cCell.data.string = strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(cell.data.integer).c_str());
+            cCell.data.stringIndex = cell.data.integer;
             break;
         case CellType::T_BOOLEAN:
             cCell.data.boolean = cell.data.boolean;
@@ -111,4 +120,14 @@ PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
 
 void dropTable(unsigned int tableOID){
     ParserInterfaceSettingsMap.erase(tableOID);
+}
+
+// memory of string has to be freed afterwards!
+char* readDynamicString(unsigned int tableOID, unsigned long long stringIndex){
+    return strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(stringIndex).c_str());
+}
+
+// memory of string has to be freed afterwards!
+char* readStaticString(unsigned int tableOID, unsigned long long stringIndex){
+    return strdup(ParserInterfaceSettingsMap[tableOID].file->getString(stringIndex).c_str());
 }

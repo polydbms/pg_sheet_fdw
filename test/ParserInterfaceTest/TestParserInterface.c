@@ -18,12 +18,18 @@ void freePaths(int i){
 void printRow(unsigned long columnCount, unsigned int tableID){
     for (unsigned long i = 0; i < columnCount; i++) {
         struct PGExcelCell cell = getNextCell(tableID);
+        char *c;
         switch (cell.type) {
             case T_STRING:
             case T_STRING_INLINE:
+                c = readDynamicString(tableID, cell.data.stringIndex);
+                printf("Cell %lu with content: %s\n", i, c);
+                free(c);
+                break;
             case T_STRING_REF:
-                printf("Cell %lu with content: %s\n", i, cell.data.string);
-                free(cell.data.string);
+                c = readStaticString(tableID, cell.data.stringIndex);
+                printf("Cell %lu with content: %s\n", i, c);
+                free(c);
                 break;
             case T_BOOLEAN:
                 printf("Cell %lu with boolean: ", i);
@@ -63,7 +69,55 @@ void testOneSheet(){
     dropTable(id);
 }
 
+void testGetDynamicStringInOneCall(){
+    unsigned int id = 0;
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id);
+    if(!success){
+        printf("Register did not succeed!\n");
+        freePaths(1);
+        exit(1);
+    }
+    else printf("Register succeeded!\n");
 
+    unsigned long columnCount = startNextRow(id);
+    printf("NextRow column count: %lu\n", columnCount);
+    while(columnCount != 0) {
+        for (unsigned long i = 0; i < columnCount; i++) {
+            struct PGExcelCell *cell = getNextCellCast(id);
+            char *c;
+            switch (cell->type) {
+                case T_STRING:
+                case T_STRING_INLINE:
+                    c = readDynamicString(id, cell->data.stringIndex);
+                    printf("Cell %lu with content: %s\n", i, c);
+                    free(c);
+                    break;
+                case T_STRING_REF:
+                    c = readStaticString(id, cell->data.stringIndex);
+                    printf("Cell %lu with content: %s\n", i, c);
+                    free(c);
+                    break;
+                case T_BOOLEAN:
+                    printf("Cell %lu with boolean: ", i);
+                    if(cell->data.boolean) printf("TRUE\n");
+                    else printf("FALSE\n");
+                    break;
+                case T_NUMERIC:
+                    printf("Cell %lu with number: %f\n", i, cell->data.real);
+                    break;
+                case T_DATE:
+                    printf("Cell %lu with date: %f\n", i, cell->data.real);
+                    break;
+                default:
+                    printf("Cell %lu with no content? Code: %d\n", i, cell->type);
+                    break;
+            }
+        }
+        columnCount = startNextRow(id);
+        printf("NextRow column count: %lu\n", columnCount);
+    }
+    dropTable(id);
+}
 
 void testTwoSheetSimultan(){
     unsigned int id1 = 0;
@@ -140,6 +194,15 @@ int handleOptions(int argc, char** argv){
         filepaths[1] = (char *) calloc(strlen(argv[3]), sizeof(char));
         strcpy(filepaths[1], argv[3]);
         testTwoSheetSimultan();
+    } else if(strcmp(argv[1], "3") == 0){
+        if(argc != 3) {
+            printf("Wrong number of arguments!\n");
+            printUsage();
+        }
+        filepaths = calloc(1, sizeof (char*));
+        filepaths[0] = (char *) calloc(strlen(argv[2]), sizeof(char));
+        strcpy(filepaths[0], argv[2]);
+        testGetDynamicStringInOneCall();
     }
     else {
         printUsage();

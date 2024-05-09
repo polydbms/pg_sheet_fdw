@@ -67,15 +67,19 @@ enum PGExcelCellType {
 struct PGExcelCell {
     union {
         double real;
-        char * string;
-        int boolean;  // Using int for boolean in C
+        unsigned long long stringIndex;
+        unsigned char boolean;  // Using char (1 byte) for boolean in C
     } data;
-    enum PGExcelCellType type;
+    unsigned char type;
 };
-extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
-extern unsigned long startNextRow(unsigned int tableOID);
-extern struct PGExcelCell getNextCell(unsigned int tableOID);
-extern void dropTable(unsigned int tableOID);
+
+unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
+unsigned long startNextRow(unsigned int tableOID);
+struct PGExcelCell getNextCell(unsigned int tableOID);
+struct PGExcelCell *getNextCellCast(unsigned int tableOID);
+char* readStaticString(unsigned int tableOID, unsigned long long stringIndex);
+char* readDynamicString(unsigned int tableOID, unsigned long long stringIndex);
+void dropTable(unsigned int tableOID);
 
 // FDW callback routines
 void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags);

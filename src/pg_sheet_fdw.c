@@ -132,60 +132,73 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     Datum *columns = (Datum *) palloc0(sizeof(Datum) * columnCount);
     bool *isnull = (bool *) palloc0(sizeof(bool) * columnCount);
     // fill tuple with cells
+    char *c;
     for(unsigned long i = 0; i < columnCount; i++){
         Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
         Oid pgType = attr->atttypid;
         char *pgTypeName = format_type_be(pgType);
         elog_debug("Column has PostgreSQL type: %s", pgTypeName);
         elog_debug("getting corresponding cell!");
-        struct PGExcelCell cell = getNextCell(foreigntableid);
+        struct PGExcelCell* cell = getNextCellCast(foreigntableid);
         elog_debug("got next cell!");
-        switch (cell.type) {
+        switch (cell->type) {
             case T_STRING:
             case T_STRING_INLINE:
-            case T_STRING_REF:
-                elog_debug("Cell %lu with content: %s", i, cell.data.string);
+                c = readDynamicString(foreigntableid, cell->data.stringIndex);
+                elog_debug("Cell %lu with content: %s", i, c);
                 if(pgType != 25 && pgType != 1043 && pgType != 18 && pgType != 1042) {
                     elog_debug("Mismatching type! pgType = %d", pgType);
                     isnull[i] = true;
                     break;
                 }
-                columns[i] = CStringGetTextDatum(cell.data.string);
+                columns[i] = CStringGetTextDatum(c);
                 isnull[i] = false;
-                free(cell.data.string);
+                free(c);
+                break;
+            case T_STRING_REF:
+                c = readStaticString(foreigntableid, cell->data.stringIndex);
+                elog_debug("Cell %lu with content: %s", i, c);
+                if(pgType != 25 && pgType != 1043 && pgType != 18 && pgType != 1042) {
+                    elog_debug("Mismatching type! pgType = %d", pgType);
+                    isnull[i] = true;
+                    break;
+                }
+                columns[i] = CStringGetTextDatum(c);
+                isnull[i] = false;
+                free(c);
                 break;
             case T_BOOLEAN:
-                elog_debug("Cell %lu with boolean: %d", i, cell.data.boolean);
+                elog_debug("Cell %lu with boolean: %c", i, cell->data.boolean);
                 if(pgType != 16) {
                     elog_debug("Mismatching type!");
                     isnull[i] = true;
                     break;
                 }
-                columns[i] = BoolGetDatum(cell.data.boolean);
+                columns[i] = BoolGetDatum(cell->data.boolean);
                 isnull[i] = false;
                 break;
             case T_NUMERIC:
-                elog_debug("Cell %lu with number: %f", i, cell.data.real);
+                elog_debug("Cell %lu with number: %f", i, cell->data.real);
                 if(pgType == 21) { //smallint
-                    long data = (long) cell.data.real;
+                    long data = (long) cell->data.real;
                     if(data > 32767) data = 32767;
                     else if(data < -32768) data = -32768;
                     columns[i] = Int16GetDatum(data);
                 }
                 else if(pgType == 23) { //integer
-                    long data = (long) cell.data.real;
+                    long data = (long) cell->data.real;
                     if(data > 2147483647) data = 2147483647;
                     else if(data < -2147483648) data = -2147483648;
                     columns[i] = Int32GetDatum(data);
                 }
                 else if(pgType == 20) //bigint
-                    columns[i] = Int64GetDatum((long) cell.data.real);
+                    columns[i] = Int64GetDatum((long) cell->data.real);
                 else if(pgType == 700) //real
-                    columns[i] = Float4GetDatum(cell.data.real);
+                    columns[i] = Float4GetDatum(cell->data.real);
                 else if(pgType == 701) //double precision
-                    columns[i] = Float8GetDatum(cell.data.real);
+                    columns[i] = Float8GetDatum(cell->data.real);
                 else if(pgType == 1700) //numeric/decimal
-                    columns[i] = DirectFunctionCall1(float8_numeric, Float8GetDatum(cell.data.real));
+                    columns[i] = DirectFunctionCall1(float8_numeric, Float8GetDatum(cell->data.real));
                 else{
                     elog_debug("Mismatching type!");
                     isnull[i] = true;
@@ -194,11 +207,11 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
                 isnull[i] = false;
                 break;
             case T_DATE:
-                elog_debug("Cell %lu with date: %f", i, cell.data.real);
+                elog_debug("Cell %lu with date: %f", i, cell->data.real);
                 if(pgType == 1082) // date
-                    columns[i] = DateADTGetDatum(DirectFunctionCall1(timestamp_date,(cell.data.real-946684800) * 1000000));
+                    columns[i] = DateADTGetDatum(DirectFunctionCall1(timestamp_date,(cell->data.real-946684800) * 1000000));
                 else if(pgType == 1114) // timestamp
-                    columns[i] = TimeADTGetDatum((cell.data.real-946684800) * 1000000); // convert unix (seconds since 1970) to pg timestamp (microseconds since 2000)
+                    columns[i] = TimeADTGetDatum((cell->data.real-946684800) * 1000000); // convert unix (seconds since 1970) to pg timestamp (microseconds since 2000)
                 else {
                     elog_debug("Mismatching type!");
                     isnull[i] = true;
