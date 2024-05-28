@@ -213,3 +213,8 @@ void provideVirtualTuple(ForeignScanState *node, int integerValue, double double
     // Mark the slot as containing a virtual tuple
     ExecStoreVirtualTuple(slot);
 }
+
+
+
+
+

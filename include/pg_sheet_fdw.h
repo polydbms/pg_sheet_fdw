@@ -36,7 +36,7 @@
 
 
 // Debug mode flag
-#define DEBUG
+//#define DEBUG
 
 /* Macro to make conditional DEBUG more terse
  * Usage: elog(String); output can be found in console */
@@ -51,6 +51,7 @@
 extern void _PG_init(void);
 
 extern void _PG_fini(void);
+
 
 // Custom c++ functions and structs
 enum PGExcelCellType {
@@ -98,8 +99,28 @@ ForeignScan *
 pg_sheet_fdwGetForeignPlan(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid, ForeignPath *best_path,
                            List *tlist, List *scan_clauses, Plan *outer_plan);
 
+
+// helper variables and structs
+typedef struct {
+    // Memory context for allocations
+    MemoryContext context;
+    // used as unique identifier in the parserInterface
+    unsigned int tableID;
+    int columnCount;
+    int batchSize;
+    unsigned long rowsLeft;
+    unsigned long rowsPrefetched;
+    unsigned long rowsRead;
+    unsigned long batchIndex;
+    // Used to check against received types from the ParserInterface
+    Oid* expectedTypes;
+    // memory for prefetched values
+    Datum** cells;
+    bool** isnull;
+} pg_sheet_scanstate;
+
 //helper functions
-static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname);
+static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize);
 
 
 #endif //pg_sheet_fdw_H

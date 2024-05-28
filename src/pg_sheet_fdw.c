@@ -23,7 +23,7 @@ void _PG_fini(void){
 
 // The handler function just returns function pointers to all FDW functions
 Datum pg_sheet_fdw_handler(PG_FUNCTION_ARGS){
-    elog_debug("%s",__func__);
+    elog_debug("[%s]",__func__);
 
     FdwRoutine *fdwroutine = makeNode(FdwRoutine);
 
@@ -48,14 +48,21 @@ Datum pg_sheet_fdw_handler(PG_FUNCTION_ARGS){
  * (The initial value is from pg_class.reltuples which represents the total row count seen by the last ANALYZE.)
  */
 void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid){
-    elog_debug("%s",__func__);
-    //TODO handle error cases
     char *filepath;
     char *sheetname;
-    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname);
-    unsigned long test = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid);
-    elog_debug("Got row count: %lu",test);
-    baserel->rows = (double) test;
+    unsigned long batchSize = 100;
+    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize);
+    unsigned long rowCount = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid);
+    elog_debug("[%s] Got row count: %lu", __func__, rowCount);
+    baserel->rows = (double) rowCount;
+
+    // store rowcount for later usage
+    List *fdw_private;
+    Datum rowCountDate = UInt64GetDatum(rowCount);
+    Datum batchSizeDate = UInt64GetDatum(batchSize);
+    fdw_private = list_make1((void *) rowCount);
+    fdw_private = lappend(fdw_private, (void *) batchSizeDate);
+    baserel->fdw_private = fdw_private;
 }
 
 /*
@@ -67,11 +74,12 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
  * and can contain any FDW-private information that is needed to identify the specific scan method intended.
  */
 void pg_sheet_fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid){
-    elog_debug("%s",__func__);
+    elog_debug("[%s]",__func__);
 
     Cost startup_cost = 0;
     Cost total_cost = baserel->rows;
-    add_path(baserel,(Path *) create_foreignscan_path(root, baserel, NULL, baserel->rows, startup_cost, total_cost, NIL, NULL, NULL, NULL));
+    List *fdw_private = baserel->fdw_private;
+    add_path(baserel,(Path *) create_foreignscan_path(root, baserel, NULL, baserel->rows, startup_cost, total_cost, NIL, NULL, NULL, fdw_private));
 }
 
 /*
@@ -86,12 +94,157 @@ void pg_sheet_fdwGetForeignPaths(PlannerInfo *root, RelOptInfo *baserel, Oid for
  * it's recommended to use make_foreignscan to build the ForeignScan node.
  */
 ForeignScan* pg_sheet_fdwGetForeignPlan(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid, ForeignPath *best_path, List *tlist, List *scan_clauses, Plan *outer_plan){
-    elog_debug("%s",__func__);
+    elog_debug("[%s]", __func__);
 
     // Just copied!!
     Index scan_relid = baserel->relid;
     scan_clauses = extract_actual_clauses(scan_clauses, false);
-    return make_foreignscan(tlist, scan_clauses, scan_relid, NIL, NULL, NIL, NIL, NULL);
+    List* fdw_private = baserel->fdw_private;
+    return make_foreignscan(tlist, scan_clauses, scan_relid, NIL, fdw_private, NIL, NIL, NULL);
+}
+
+Datum pg_sheet_fdwConvertSheetNumericToPG(struct PGExcelCell* cell, Oid expectedType){
+    long data;
+    switch(expectedType){
+        case (20): // bigint
+            return Int64GetDatum((long) cell->data.real);
+        case (21): // smallint
+            data = (long) cell->data.real;
+            if(data > 32767) data = 32767;
+            else if(data < -32768) data = -32768;
+            return Int16GetDatum(data);
+        case (23): // integer
+            data = (long) cell->data.real;
+            if(data > 2147483647) data = 2147483647;
+            else if(data < -2147483648) data = -2147483648;
+            return Int32GetDatum(data);
+        case (700): // real
+            return Float4GetDatum(cell->data.real);
+        case (701): // double precision
+            return Float8GetDatum(cell->data.real);
+        case (1700): // numeric/decimal
+            return DirectFunctionCall1(float8_numeric, Float8GetDatum(cell->data.real));
+        default:
+            elog_debug("Unreachable path reached?");
+            return 0;
+    }
+}
+
+// returns 0 if no new rows prefetched, 1 if at least one row prefetched
+int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
+    // switch to memory context
+    MemoryContext oldContext = MemoryContextSwitchTo(state->context);
+
+    // debug print the state
+    elog_debug("[%s] state debug id: %u, column count: %u, rows left: %lu, rows prefetched: %u, rows read: %u, next batchIndex: %lu", __func__, state->tableID, state->columnCount, state->rowsLeft, state->rowsRead, state->rowsPrefetched, state->batchIndex );
+    unsigned long prefetchCount = state->batchSize;
+    if(state->rowsLeft < state->batchSize) prefetchCount = state->rowsLeft;
+    elog_debug("[%s] Pallocating %lu Bytes memory for %lu rows.", __func__, sizeof(Datum) * prefetchCount * state->columnCount, prefetchCount);
+    // allocate new memory in the scan state at the next batch pointer.
+    state->isnull[state->batchIndex] = (bool*) palloc(sizeof(bool) * prefetchCount * state->columnCount);
+    state->cells[state->batchIndex] = (Datum*) palloc(sizeof(Datum) * prefetchCount * state->columnCount);
+
+    // fetch amount of rows, check the received datatypes
+    unsigned long rowsPrefetched = 0;
+    for(; rowsPrefetched < prefetchCount; rowsPrefetched++){
+        unsigned long columnCount = startNextRow(state->tableID);
+        // no more rows to read? finish
+        if(columnCount == 0) break;
+        // columnCount valid?
+        if(columnCount != state->columnCount){
+            elog_debug("[%s] invalid column count in sheet cell!", __func__);
+            return 0;
+        }
+        // fill tuple with cells
+        char *c;
+        unsigned long currentRow = rowsPrefetched * state->columnCount;
+        for(unsigned long i = 0; i < columnCount; i++){
+            struct PGExcelCell* cell = getNextCellCast(state->tableID);
+            Oid expectedType = state->expectedTypes[i];
+            switch(expectedType){
+                case (16):
+                    if(cell->type != T_BOOLEAN) {
+                        elog_debug("[%s] Mismatching type!", __func__);
+                        state->isnull[state->batchIndex][currentRow+i] = true;
+                        break;
+                    }
+//                    elog_debug("[%s] Cell %lu with boolean: %d", __func__, i, cell->data.boolean);
+                    state->cells[state->batchIndex][currentRow+i] = BoolGetDatum(cell->data.boolean);
+                    state->isnull[state->batchIndex][currentRow+i] = false;
+                    break;
+                case (20):
+                case (21):
+                case (23):
+                case (700):
+                case (701):
+                case (1700):
+                    if(cell->type != T_NUMERIC) {
+                        elog_debug("[%s] Mismatching type!", __func__);
+                        state->isnull[state->batchIndex][currentRow+i] = true;
+                        break;
+                    }
+//                    elog_debug("[%s] Cell %lu with number: %f", __func__, i, cell->data.real);
+                    state->cells[state->batchIndex][currentRow+i] = pg_sheet_fdwConvertSheetNumericToPG(cell, expectedType);
+                    state->isnull[state->batchIndex][currentRow+i] = false;
+                    break;
+                case (1082): // date
+                    if(cell->type != T_DATE) {
+                        elog_debug("[%s] Mismatching type!", __func__);
+                        state->isnull[state->batchIndex][currentRow+i] = true;
+                        break;
+                    }
+//                    elog_debug("[%s] Cell %lu with date", __func__, i);
+                    state->cells[state->batchIndex][currentRow+i] = DateADTGetDatum(DirectFunctionCall1(timestamp_date,(cell->data.real-946684800) * 1000000));
+                    state->isnull[state->batchIndex][currentRow+i] = false;
+                    break;
+                case (1114): // timestamp
+                    if(cell->type != T_DATE) {
+                        elog_debug("[%s] Mismatching type!", __func__);
+                        state->isnull[state->batchIndex][currentRow+i] = true;
+                        break;
+                    }
+//                    elog_debug("[%s] Cell %lu with timestamp", __func__, i);
+                    state->cells[state->batchIndex][currentRow+i] = TimeADTGetDatum((cell->data.real-946684800) * 1000000); // convert unix (seconds since 1970) to pg timestamp (microseconds since 2000)
+                    state->isnull[state->batchIndex][currentRow+i] = false;
+                    break;
+                case (18):
+                case (25):
+                case (1042):
+                case (1043):
+                    if(cell->type == T_STRING || cell->type == T_STRING_INLINE){
+                        elog_debug("[%s] Got static string!", __func__);
+                        c = readDynamicString(state->tableID, cell->data.stringIndex);
+                    } else if(cell->type == T_STRING_REF) {
+                        elog_debug("[%s] Got dynamic string!", __func__);
+                        c = readStaticString(state->tableID, cell->data.stringIndex);
+                    } else {
+                        elog_debug("[%s] Mismatching type!", __func__);
+                        state->isnull[state->batchIndex][currentRow+i] = true;
+                        break;
+                    }
+                    elog_debug("[%s] Row %lu Cell %lu with string: %s with length: %d", __func__, rowsPrefetched, i, c, strlen(c));
+                    state->cells[state->batchIndex][currentRow+i] = CStringGetTextDatum(c);
+                    state->isnull[state->batchIndex][currentRow+i] = false;
+                    elog_debug("[%s] Freeing string that got converted to a Datum!", __func__);
+                    free(c);
+                    break;
+                default:
+                    elog_debug("[%s] Unsupported datatype in Postgresql foreign table definition!", __func__);
+            }
+        }
+    }
+    elog_debug("[%s] Fetched %lu rows", __func__, rowsPrefetched);
+
+    // switch memory context back
+    MemoryContextSwitchTo(oldContext);
+
+    // set prefetch counter to amount and read counter to 0
+    if(rowsPrefetched == 0) return 0;
+    state->batchIndex = state->batchIndex +1;
+    state->rowsRead = 0;
+    state->rowsPrefetched = rowsPrefetched;
+    state->rowsLeft = state->rowsLeft - rowsPrefetched;
+    return 1;
 }
 
 /*
@@ -104,7 +257,59 @@ ForeignScan* pg_sheet_fdwGetForeignPlan(PlannerInfo *root, RelOptInfo *baserel, 
  * eflags contains flag bits describing the executor's operating mode for this plan node.
  */
 void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
-    elog_debug("%s",__func__);
+
+    // build scan state and store memory context
+    pg_sheet_scanstate *state = (pg_sheet_scanstate *) palloc(sizeof(pg_sheet_scanstate));
+
+    // set memory context for prefetch allocations
+    MemoryContext scanContext = AllocSetContextCreate(CurrentMemoryContext, "pg_sheet_allocationContext", ALLOCSET_DEFAULT_SIZES);
+    MemoryContext oldContext = MemoryContextSwitchTo(scanContext);
+
+    state->context = scanContext;
+
+    // get total row count
+    List* fdw_private = ((ForeignScan *)node->ss.ps.plan)->fdw_private;
+    Datum rowCount = (Datum) linitial(fdw_private);
+    Datum batchSize = (Datum) list_nth(fdw_private, 1);
+    state->rowsLeft = DatumGetUInt64(rowCount);
+    state->batchSize = DatumGetUInt64(batchSize);
+
+    elog_debug("[%s] Prepare scan for %lu rows", __func__, state->rowsLeft);
+
+    // get table id (used for unique identifier in the parserinterface)
+    state->tableID = node->ss.ss_currentRelation->rd_id;
+    elog_debug("[%s] Foreign table Oid: %u",__func__, state->tableID);
+
+    // read number of columns and column types
+    TupleDesc td = RelationGetDescr(node->ss.ss_currentRelation);
+    state->columnCount = td->natts;
+    elog_debug("[%s] Detected number of columns: %d",__func__, state->columnCount);
+    state->expectedTypes = (Oid *) palloc(sizeof(Oid) * state->columnCount);
+    for(int i=0; i < state->columnCount; i++){
+        Form_pg_attribute attr = TupleDescAttr(td, i);
+        state->expectedTypes[i] = attr->atttypid;
+    }
+
+    // pallocate memory for all the batch pointers
+    unsigned long batchCount = (state->rowsLeft / state->batchSize +1);
+    elog_debug("[%s] Pallocating %lu bytes for %lu batch pointers.", __func__ , batchCount  * sizeof(Datum*), batchCount);
+    state->isnull = (bool**) palloc(batchCount  * sizeof(bool*));
+    state->cells = (Datum**) palloc(batchCount  * sizeof(Datum*));
+
+    // set counters
+    state->rowsPrefetched = 0;
+    state->rowsRead = 0;
+    state->batchIndex = 0;
+
+    // prefetch first batch
+    elog_debug("[%s] Calling Prefetch function",__func__);
+    int t = pg_sheet_fdwPrefetchRows(state);
+
+    // store scan state pointer
+    node->fdw_state = (void*) state;
+
+    // switch back the memory context
+    MemoryContextSwitchTo(oldContext);
 }
 
 /*
@@ -116,120 +321,33 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
  * Create a memory context in BeginForeignScan if you need longer-lived storage, or use the es_query_cxt of the node's EState.
  */
 TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
-    elog_debug("%s",__func__);
 
-    unsigned int foreigntableid = node->ss.ss_currentRelation->rd_id;
+    pg_sheet_scanstate *state = node->fdw_state;
 
-    TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
-    TupleDesc tupdesc = slot->tts_tupleDescriptor;
-
-    // set iterator to next excel row and read column count
-    unsigned long columnCount = startNextRow(foreigntableid);
-    elog_debug("startNextRow column count: %lu", columnCount);
-    // no more rows to read? finish
-    if(columnCount == 0) return NULL;
-    // prepare tuple data structure
-    Datum *columns = (Datum *) palloc0(sizeof(Datum) * columnCount);
-    bool *isnull = (bool *) palloc0(sizeof(bool) * columnCount);
-    // fill tuple with cells
-    char *c;
-    for(unsigned long i = 0; i < columnCount; i++){
-        Form_pg_attribute attr = TupleDescAttr(tupdesc, i);
-        Oid pgType = attr->atttypid;
-        char *pgTypeName = format_type_be(pgType);
-        elog_debug("Column has PostgreSQL type: %s", pgTypeName);
-        elog_debug("getting corresponding cell!");
-        struct PGExcelCell* cell = getNextCellCast(foreigntableid);
-        elog_debug("got next cell!");
-        switch (cell->type) {
-            case T_STRING:
-            case T_STRING_INLINE:
-                c = readDynamicString(foreigntableid, cell->data.stringIndex);
-                elog_debug("Cell %lu with content: %s", i, c);
-                if(pgType != 25 && pgType != 1043 && pgType != 18 && pgType != 1042) {
-                    elog_debug("Mismatching type! pgType = %d", pgType);
-                    isnull[i] = true;
-                    break;
-                }
-                columns[i] = CStringGetTextDatum(c);
-                isnull[i] = false;
-                free(c);
-                break;
-            case T_STRING_REF:
-                c = readStaticString(foreigntableid, cell->data.stringIndex);
-                elog_debug("Cell %lu with content: %s", i, c);
-                if(pgType != 25 && pgType != 1043 && pgType != 18 && pgType != 1042) {
-                    elog_debug("Mismatching type! pgType = %d", pgType);
-                    isnull[i] = true;
-                    break;
-                }
-                columns[i] = CStringGetTextDatum(c);
-                isnull[i] = false;
-                free(c);
-                break;
-            case T_BOOLEAN:
-                elog_debug("Cell %lu with boolean: %c", i, cell->data.boolean);
-                if(pgType != 16) {
-                    elog_debug("Mismatching type!");
-                    isnull[i] = true;
-                    break;
-                }
-                columns[i] = BoolGetDatum(cell->data.boolean);
-                isnull[i] = false;
-                break;
-            case T_NUMERIC:
-                elog_debug("Cell %lu with number: %f", i, cell->data.real);
-                if(pgType == 21) { //smallint
-                    long data = (long) cell->data.real;
-                    if(data > 32767) data = 32767;
-                    else if(data < -32768) data = -32768;
-                    columns[i] = Int16GetDatum(data);
-                }
-                else if(pgType == 23) { //integer
-                    long data = (long) cell->data.real;
-                    if(data > 2147483647) data = 2147483647;
-                    else if(data < -2147483648) data = -2147483648;
-                    columns[i] = Int32GetDatum(data);
-                }
-                else if(pgType == 20) //bigint
-                    columns[i] = Int64GetDatum((long) cell->data.real);
-                else if(pgType == 700) //real
-                    columns[i] = Float4GetDatum(cell->data.real);
-                else if(pgType == 701) //double precision
-                    columns[i] = Float8GetDatum(cell->data.real);
-                else if(pgType == 1700) //numeric/decimal
-                    columns[i] = DirectFunctionCall1(float8_numeric, Float8GetDatum(cell->data.real));
-                else{
-                    elog_debug("Mismatching type!");
-                    isnull[i] = true;
-                    break;
-                }
-                isnull[i] = false;
-                break;
-            case T_DATE:
-                elog_debug("Cell %lu with date: %f", i, cell->data.real);
-                if(pgType == 1082) // date
-                    columns[i] = DateADTGetDatum(DirectFunctionCall1(timestamp_date,(cell->data.real-946684800) * 1000000));
-                else if(pgType == 1114) // timestamp
-                    columns[i] = TimeADTGetDatum((cell->data.real-946684800) * 1000000); // convert unix (seconds since 1970) to pg timestamp (microseconds since 2000)
-                else {
-                    elog_debug("Mismatching type!");
-                    isnull[i] = true;
-                    break;
-                }
-                isnull[i] = false;
-                break;
-            default: // T_BLANK or T_ERROR
-                elog_debug("Blank or Error in struct from getNextCell()");
-                isnull[i] = true;
-                break;
+    // need more rows prefetched?
+    if(state->rowsRead >= state->rowsPrefetched){
+        elog_debug("[%s] No more rows left. Calling Prefetch function", __func__ );
+        int t = pg_sheet_fdwPrefetchRows(state);
+        if(!t){
+            return NULL;
         }
     }
-    elog_debug("Store tuple in TupleTableSlot");
+
+    // build tuple from already fetched rows and increment read counter
+    elog_debug("[%s] Storing tuple in TupleTableSlot from batch %lu at index %lu", __func__, state->batchIndex-1, state->rowsRead );
+    TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
     ExecClearTuple(slot);
-    slot->tts_values = columns;
-    slot->tts_isnull = isnull;
+    // virtual tuple
+    slot->tts_values = &(state->cells[state->batchIndex-1][state->rowsRead * state->columnCount]);
+    slot->tts_isnull = &(state->isnull[state->batchIndex-1][state->rowsRead * state->columnCount]);
     ExecStoreVirtualTuple(slot);
+    // heap tuple
+//    Datum* values = &(state->cells[state->batchIndex-1][state->rowsRead * state->columnCount]);
+//    bool* isnull = &(state->isnull[state->batchIndex-1][state->rowsRead * state->columnCount]);
+//    HeapTuple tuple = heap_form_tuple(slot->tts_tupleDescriptor, values, isnull);
+//    ExecStoreHeapTuple(tuple, slot, InvalidBuffer);
+
+    state->rowsRead++;
     return slot;
 }
 
@@ -242,20 +360,24 @@ void pg_sheet_fdwReScanForeignScan(ForeignScanState *node){elog_debug("%s",__fun
 /*
  * End the scan and release resources. It is normally not important to release palloc'd memory,
  * but for example open files and connections to remote servers should be cleaned up.
+ *
+ * we release our palloced memory from our own memory context. it is probably hierarchically under the context
+ * of the whole foreign table scan and will be released with it. But we can already release it here.
  */
 void pg_sheet_fdwEndForeignScan(ForeignScanState *node){
-    elog_debug("%s", __func__);
-    unsigned int foreigntableid = node->ss.ss_currentRelation->rd_id;
-    dropTable(foreigntableid);
+    elog_debug("[%s] Dropping sheet in ParserInterface", __func__);
+    dropTable(((pg_sheet_scanstate *)(node->fdw_state))->tableID);
+    pg_sheet_scanstate *state = node->fdw_state;
+    MemoryContextDelete(state->context);
+    pfree(state);
 }
 
 /*
  * Fetches values from OPTIONS in Foreign Server and Table registration.
  */
 static void
-pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname)
+pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize)
 {
-    elog_debug("%s",__func__);
     ForeignTable	*f_table;
     ForeignServer	*f_server;
     List		*options;
@@ -279,13 +401,19 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname)
         if (strcmp(def->defname, "filepath") == 0)
         {
             *filepath = defGetString(def);
-            elog_debug("Got filepath with value: %s", *filepath);
+            elog_debug("[%s] Got filepath with value: %s", __func__, *filepath);
         }
 
         if (strcmp(def->defname, "sheetname") == 0)
         {
             *sheetname = defGetString(def);
-            elog_debug("Got sheetname with value: %s", *sheetname);
+            elog_debug("[%s] Got sheetname with value: %s", __func__, *sheetname);
+        }
+
+        if (strcmp(def->defname, "batchsize") == 0)
+        {
+            *batchSize = defGetInt64(def);
+            elog_debug("[%s] Got batchsize with value: %lu", __func__, *batchSize);
         }
     }
 }
