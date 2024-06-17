@@ -15,7 +15,7 @@ CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
     timestamp       timestamp,
     boolean       boolean
     ) SERVER dummy
-    OPTIONS (filepath '/pg_sheet_fdw/test/datebool_test.xlsx', sheetname 'encoding');
+    OPTIONS (filepath '/pg_sheet_fdw/test/datebool_test.xlsx', sheetname 'encoding', batchsize '5', numberofthreads '1');
 
 -- Select everything
 SELECT * FROM randomTestTable;

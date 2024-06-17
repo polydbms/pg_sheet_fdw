@@ -1,0 +1,13 @@
+CREATE EXTENSION
+CREATE SERVER
+CREATE FOREIGN TABLE
+ varchar1 | varchar2 |   char   
+----------+----------+----------
+ Meine    | Test     | Daten
+ Noch     | Mehr     | Davon
+ Das      | Ist      | Das Ende
+(3 rows)
+
+DROP FOREIGN TABLE
+DROP SERVER
+DROP EXTENSION

@@ -161,8 +161,9 @@ void printUsage(){
     printf("    ./output <testnumber> <filepath> {<filepath>}\n");
     printf("    ./output -h   //prints this help message\n");
     printf("Test numbers: \n");
-    printf("    1 for only reading one given sheet\n");
+    printf("    1 for reading a given sheet with copying of datastructures between c and c++\n");
     printf("    2 for reading 2 sheets interleaved\n");
+    printf("    3 for reading a sheet with less copying and pointer magic\n");
     exit(0);
 }
 

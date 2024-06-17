@@ -37,7 +37,7 @@ extern "C"
         unsigned char type;
     };
 
-    unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
+    unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads);
     unsigned long startNextRow(unsigned int tableOID);
     struct PGExcelCell getNextCell(unsigned int tableOID);
     struct PGExcelCell *getNextCellCast(unsigned int tableOID);

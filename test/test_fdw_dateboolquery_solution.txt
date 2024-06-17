@@ -1,0 +1,13 @@
+CREATE EXTENSION
+CREATE SERVER
+CREATE FOREIGN TABLE
+    date    |      timestamp      | boolean 
+------------+---------------------+---------
+ 1993-10-21 | 1993-10-21 00:00:00 | t
+ 1994-09-25 | 1994-09-25 00:00:00 | f
+ 2024-05-24 | 2024-05-24 00:00:00 | t
+(3 rows)
+
+DROP FOREIGN TABLE
+DROP SERVER
+DROP EXTENSION

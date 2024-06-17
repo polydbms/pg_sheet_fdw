@@ -51,8 +51,9 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     char *filepath;
     char *sheetname;
     unsigned long batchSize = 100;
-    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize);
-    unsigned long rowCount = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid);
+    int numberOfThreads = -1;
+    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize, &numberOfThreads);
+    unsigned long rowCount = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid, numberOfThreads);
     elog_debug("[%s] Got row count: %lu", __func__, rowCount);
     baserel->rows = (double) rowCount;
 
@@ -345,7 +346,7 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
 //    Datum* values = &(state->cells[state->batchIndex-1][state->rowsRead * state->columnCount]);
 //    bool* isnull = &(state->isnull[state->batchIndex-1][state->rowsRead * state->columnCount]);
 //    HeapTuple tuple = heap_form_tuple(slot->tts_tupleDescriptor, values, isnull);
-//    ExecStoreHeapTuple(tuple, slot, InvalidBuffer);
+//    ExecStoreHeapTuple(tuple, slot, 0);
 
     state->rowsRead++;
     return slot;
@@ -367,16 +368,32 @@ void pg_sheet_fdwReScanForeignScan(ForeignScanState *node){elog_debug("%s",__fun
 void pg_sheet_fdwEndForeignScan(ForeignScanState *node){
     elog_debug("[%s] Dropping sheet in ParserInterface", __func__);
     dropTable(((pg_sheet_scanstate *)(node->fdw_state))->tableID);
-    pg_sheet_scanstate *state = node->fdw_state;
-    MemoryContextDelete(state->context);
-    pfree(state);
 }
+
+/*
+ * Read an options value and convert it to long. Throw error if it can't.
+ */
+int64
+GetInt64Option(DefElem *def)
+{
+    int64 result;
+    char *str_val = defGetString(def);
+
+    if (!scanint8(str_val, true, &result))
+        ereport(ERROR,
+                (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                        errmsg("invalid value for option \"%s\": \"%s\"",
+                               def->defname, str_val)));
+
+    return result;
+}
+
 
 /*
  * Fetches values from OPTIONS in Foreign Server and Table registration.
  */
 static void
-pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize)
+pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads)
 {
     ForeignTable	*f_table;
     ForeignServer	*f_server;
@@ -412,8 +429,16 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
 
         if (strcmp(def->defname, "batchsize") == 0)
         {
-            *batchSize = defGetInt64(def);
+            long custombatchsize = GetInt64Option(def);
+            if(custombatchsize > 0) *batchSize = custombatchsize;
             elog_debug("[%s] Got batchsize with value: %lu", __func__, *batchSize);
+        }
+
+        if (strcmp(def->defname, "numberofthreads") == 0)
+        {
+            long customnumberofthreads = GetInt64Option(def);
+            if(customnumberofthreads > 0 && customnumberofthreads <= 10) *numberOfThreads = customnumberofthreads;
+            elog_debug("[%s] Got number of threads with value: %lu", __func__, *numberOfThreads);
         }
     }
 }

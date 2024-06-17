@@ -4,7 +4,10 @@
 
 #include "ParserInterface.h"
 
-unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID){
+/*
+ * if numberOfThreads is -1, automatically take a high number of threads, that makes sense for system.
+ */
+unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads){
     try {
         // first check, if already registered on the id. Also check for same names if already registered.
 
@@ -14,7 +17,9 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         settings.filePath = pathToFile;
         settings.sheetName = sheetName;
 
-        if (settings.num_threads == -1) {
+        // set number of threads for Sheet Reader
+        settings.num_threads = numberOfThreads;
+        if (settings.num_threads < 1) {
             // automatically decide number of threads
             settings.num_threads = std::thread::hardware_concurrency();
             if (settings.num_threads <= 0) {

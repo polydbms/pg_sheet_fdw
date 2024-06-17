@@ -18,7 +18,7 @@ CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
     double_precision       double precision,
     numeric       numeric
     ) SERVER dummy
-    OPTIONS (filepath '/pg_sheet_fdw/test/numeric_test.xlsx', sheetname 'encoding');
+    OPTIONS (filepath '/pg_sheet_fdw/test/numeric_test.xlsx', sheetname 'encoding', batchsize '10', numberofthreads '5');
 
 -- Select everything
 SELECT * FROM randomTestTable;

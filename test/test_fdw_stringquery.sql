@@ -14,7 +14,7 @@ CREATE FOREIGN TABLE IF NOT EXISTS randomTestTable(
     varchar2       varchar,
     char       char
     ) SERVER dummy
-    OPTIONS (filepath '/pg_sheet_fdw/test/string_test.xlsx', sheetname 'encoding');
+    OPTIONS (filepath '/pg_sheet_fdw/test/string_test.xlsx', sheetname 'encoding', batchsize '50', numberofthreads '10');
 
 -- Select everything
 SELECT * FROM randomTestTable;

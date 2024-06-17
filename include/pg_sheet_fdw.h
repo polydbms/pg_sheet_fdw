@@ -24,6 +24,7 @@
 #include "utils/rel.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
+#include "utils/int8.h"
 
 #include "catalog/pg_foreign_server.h"
 #include "catalog/pg_foreign_table.h"
@@ -36,7 +37,7 @@
 
 
 // Debug mode flag
-//#define DEBUG
+#define DEBUG
 
 /* Macro to make conditional DEBUG more terse
  * Usage: elog(String); output can be found in console */
@@ -74,7 +75,7 @@ struct PGExcelCell {
     unsigned char type;
 };
 
-unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID);
+unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads);
 unsigned long startNextRow(unsigned int tableOID);
 struct PGExcelCell getNextCell(unsigned int tableOID);
 struct PGExcelCell *getNextCellCast(unsigned int tableOID);
@@ -120,7 +121,7 @@ typedef struct {
 } pg_sheet_scanstate;
 
 //helper functions
-static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize);
+static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads);
 
 
 #endif //pg_sheet_fdw_H
