@@ -1,6 +1,5 @@
-## Postgres Docker Image for Sheet Reader
-This Docker Image is for compiling and testing the Sheet Reader Foreign Data Wrapper for Postgresql. It is based on the Postgresql Docker Image from the XDB ptoject. 
+# Postgres Docker Image for PG_Sheet
+This Docker Image compiles and tests the Sheet Reader Foreign Data Wrapper PG_Sheet.
 
-Use the Makefile for image building.
-Use the Compose file for starting a container.
-Set your IDE to use the started container.
+Use the Makefile for Image building.
+Alternatively, the script ../compile_In_Docker.sh also builds the Image, starts a container and runs tests on it. The container keeps running afterward.

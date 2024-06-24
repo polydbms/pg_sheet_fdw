@@ -45,6 +45,7 @@ COPY test /pg_sheet_fdw/test
 RUN echo "Installing pg_sheet_fdw." \
     && cd /pg_sheet_fdw/ && make USE_PGXS=1 install
 
+# Set Postgres configuration
 USER postgres
 
 RUN    /etc/init.d/postgresql start &&\

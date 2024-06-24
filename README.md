@@ -1,10 +1,36 @@
-# PG_Sheet - A Postgres Foreign Data Wrapper for SheetReader!
+# PG_Sheet - A Postgres Foreign Data Wrapper for SheetReader
 
 This Foreign Data Wrapper gives Postgresql access to SheetReader, which is a fast Excel sheet reader. It enables Postgresql to access local .xlsx files (Excel Sheets) as foreign tables. This code is tested with PostgreSQL Server 13, but probably works for newer versions too.
 
+## Prerequisites
+
+### Submodules
+
+This repository depends on submodules! To pull the submodules, either clone this repository with the extra flag for submodules:
+```
+git clone --recurse-submodules <repository_url>
+```
+OR initialize the submodules afterward:
+```
+git submodule update --init
+```
+
+### Postgres Development Headers
+
+This module needs access to Postgresql development code. A plain Postgresql installation is not sufficient! To install the needed dependency replace X with your version number and run:
+```
+sudo apt install postgresql-server-dev-X
+```
+
 ## Installing on local Postgresql Server
 
-To compile and install locally on Ubuntu, run `make USE_PGXS=1 install`. If you see permission errors, use sudo! This compiles PG_Sheet and copies all relevant files into the respective folders of your local PostgreSQL Server installation.
+Now to compile and install locally on Ubuntu, run:
+```
+make
+make USE_PGXS=1 install
+```
+You eventually need elevated privileges.
+These commands compile PG_Sheet and copie all relevant files into the respective folders of your local PostgreSQL Server installation.
 
 ## Build Docker Image
 
@@ -12,7 +38,7 @@ To get a Docker Image with PG_Sheet, run the script "compile_In_Docker.sh". The 
 
 ## Test
 
-In the /test directory are small Excel Sheets for testing. The script "/test/test_fdw_runall.sh" executes basic functioning tests on the local PostgreSQL Server. It calls `psql --echo-errors -v ON_ERROR_STOP=on -f ` on all sql test files. The command can be modified if local user credentials are needed.
+In the /test directory are small Excel Sheets for testing. The script "/test/test_fdw_runall.sh" executes basic functioning tests on the local PostgreSQL Server. It calls `psql --echo-errors -v ON_ERROR_STOP=on -f ` on all sql test files. The command can be modified if local user credentials are needed. Also keep in mind, that the postgres user needs reading permission on all sheets.
 
 ## Usage
 
