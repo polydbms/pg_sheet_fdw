@@ -9,14 +9,16 @@
  */
 unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads){
     try {
-        // first check, if already registered on the id. Also check for same names if already registered.
+        // TODO first check, if already registered on the id. Also check for same names if already registered.
 
-
+        debug_print("[%s] Start registering.\n", __func__);
         // then register with standard settings
         SheetReaderSettings settings;
         settings.filePath = pathToFile;
         settings.sheetName = sheetName;
 
+
+        debug_print("[%s] Setting thread number.\n", __func__);
         // set number of threads for Sheet Reader
         settings.num_threads = numberOfThreads;
         if (settings.num_threads < 1) {
@@ -35,10 +37,14 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
             settings.parallel = false;
         }
 
+
+        debug_print("[%s] Building file object.\n", __func__);
         std::shared_ptr<XlsxFile> file = std::make_shared<XlsxFile>(settings.filePath);
         file->mParallelStrings = settings.parallel;
         file->parseSharedStrings();
 
+
+        debug_print("[%s] Building sheet object.\n", __func__);
         std::shared_ptr<XlsxSheet> fsheet = (settings.sheetName == "") ? std::make_shared<XlsxSheet>(file->getSheet(1))
                                                                        : std::make_shared<XlsxSheet>(
                         file->getSheet(settings.sheetName));
@@ -50,6 +56,8 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         bool success = fsheet->interleaved(settings.skip_rows, settings.skip_columns, act_num_threads);
         file->finalize();
 
+
+        debug_print("[%s] Finished.\n", __func__);
         if (!success) return 0;
         else {
             settings.file = file;
@@ -114,6 +122,7 @@ PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
         case CellType::T_BOOLEAN:
             cCell.data.boolean = cell.data.boolean;
             break;
+        case CellType::T_SKIP:
         case CellType::T_NONE:
         case CellType::T_ERROR:
             break;
@@ -129,7 +138,7 @@ void dropTable(unsigned int tableOID){
 
 // memory of string has to be freed afterwards!
 char* readDynamicString(unsigned int tableOID, unsigned long long stringIndex){
-    return strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(stringIndex).c_str());
+    return strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(0,stringIndex).c_str());
 }
 
 // memory of string has to be freed afterwards!

@@ -61,7 +61,7 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     List *fdw_private;
     Datum rowCountDate = UInt64GetDatum(rowCount);
     Datum batchSizeDate = UInt64GetDatum(batchSize);
-    fdw_private = list_make1((void *) rowCount);
+    fdw_private = list_make1((void *) rowCountDate);
     fdw_private = lappend(fdw_private, (void *) batchSizeDate);
     baserel->fdw_private = fdw_private;
 }
@@ -137,7 +137,7 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
     MemoryContext oldContext = MemoryContextSwitchTo(state->context);
 
     // debug print the state
-    elog_debug("[%s] state debug id: %u, column count: %u, rows left: %lu, rows prefetched: %u, rows read: %u, next batchIndex: %lu", __func__, state->tableID, state->columnCount, state->rowsLeft, state->rowsRead, state->rowsPrefetched, state->batchIndex );
+    elog_debug("[%s] state debug id: %u, column count: %u, rows left: %lu, rows prefetched: %lu, rows read: %lu, next batchIndex: %lu", __func__, state->tableID, state->columnCount, state->rowsLeft, state->rowsRead, state->rowsPrefetched, state->batchIndex );
     unsigned long prefetchCount = state->batchSize;
     if(state->rowsLeft < state->batchSize) prefetchCount = state->rowsLeft;
     elog_debug("[%s] Pallocating %lu Bytes memory for %lu rows.", __func__, sizeof(Datum) * prefetchCount * state->columnCount, prefetchCount);
@@ -223,7 +223,7 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
                         state->isnull[state->batchIndex][currentRow+i] = true;
                         break;
                     }
-                    elog_debug("[%s] Row %lu Cell %lu with string: %s with length: %d", __func__, rowsPrefetched, i, c, strlen(c));
+                    elog_debug("[%s] Row %lu Cell %lu with string: %s with length: %lu", __func__, rowsPrefetched, i, c, strlen(c));
                     state->cells[state->batchIndex][currentRow+i] = CStringGetTextDatum(c);
                     state->isnull[state->batchIndex][currentRow+i] = false;
                     elog_debug("[%s] Freeing string that got converted to a Datum!", __func__);
@@ -410,6 +410,9 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
     options = list_concat(options, f_table->options);
     options = list_concat(options, f_server->options);
 
+    bool foundSheet = false;
+    bool foundPath = false;
+
     /* Loop through the options, and get the server/port */
     foreach(lc, options)
     {
@@ -418,12 +421,14 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
         if (strcmp(def->defname, "filepath") == 0)
         {
             *filepath = defGetString(def);
+            foundPath = true;
             elog_debug("[%s] Got filepath with value: %s", __func__, *filepath);
         }
 
         if (strcmp(def->defname, "sheetname") == 0)
         {
             *sheetname = defGetString(def);
+            foundSheet = true;
             elog_debug("[%s] Got sheetname with value: %s", __func__, *sheetname);
         }
 
@@ -437,8 +442,20 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
         if (strcmp(def->defname, "numberofthreads") == 0)
         {
             long customnumberofthreads = GetInt64Option(def);
-            if(customnumberofthreads > 0 && customnumberofthreads <= 10) *numberOfThreads = customnumberofthreads;
-            elog_debug("[%s] Got number of threads with value: %lu", __func__, *numberOfThreads);
+            if(customnumberofthreads > 0 && customnumberofthreads <= 10) {
+                *numberOfThreads = customnumberofthreads;
+                elog_debug("[%s] Got number of threads with value: %d", __func__, *numberOfThreads);
+            }
         }
+    }
+
+    if(!foundPath) ereport(ERROR,
+                           (errcode(ERRCODE_FDW_OPTION_NAME_NOT_FOUND),
+                                   errmsg("missing mandatory option \"filepath\"" )));
+    if(!foundSheet){
+        elog_debug("[%s] Found no sheetname, using default \"\"!", __func__, *sheetname);
+        *sheetname = palloc(sizeof(char));
+        const char *empty = "";
+        strcpy(*sheetname, empty);
     }
 }

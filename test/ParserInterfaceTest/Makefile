@@ -2,8 +2,8 @@
 CC := gcc
 CXX := g++
 CFLAGS := -Wall -Wextra
-CXXFLAGS := -Wall -Wextra -I../../include -I../../submodules/SheetReader-r/src
-CPPOBJS := ../../submodules/SheetReader-r/src/XlsxFile.o ../../submodules/SheetReader-r/src/XlsxSheet.o ../../submodules/SheetReader-r/src/miniz/miniz.o ../../src/ParserInterface.o
+CXXFLAGS := -Wall -Wextra -I../../include -I../../submodules/sheetreader/src
+CPPOBJS := ../../submodules/sheetreader/src/XlsxFile.o ../../submodules/sheetreader/src/XlsxSheet.o ../../submodules/sheetreader/src/miniz/miniz.o ../../src/ParserInterface.o
 COBJS := TestParserInterface.o
 
 # Rules

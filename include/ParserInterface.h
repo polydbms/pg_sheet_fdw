@@ -5,6 +5,15 @@
 #ifndef PG_SHEET_FDW_PARSERINTERFACE_H
 #define PG_SHEET_FDW_PARSERINTERFACE_H
 
+// debug flag
+#define PARSERINTERFACEDEBUG
+
+#ifdef PARSERINTERFACEDEBUG
+#define debug_print(...) printf(__VA_ARGS__)
+#else
+#define debug_print(...) ((void) 0)
+#endif
+
 #include "XlsxFile.h"
 #include <map>
 #include <string>
@@ -25,7 +34,9 @@ extern "C"
         T_STRING_INLINE = 4,
         T_BOOLEAN = 5, // boolean is just int
         T_ERROR = 6,
-        T_DATE = 7 // datetime value, already as unix timestamp (seconds since 1970), Excel stores as number of days since 1900
+        T_DATE = 7, // datetime value, already as unix timestamp (seconds since 1970), Excel stores as number of days since 1900
+
+        T_SKIP = 8
     };
 
     struct PGExcelCell {

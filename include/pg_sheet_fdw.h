@@ -37,7 +37,7 @@
 
 
 // Debug mode flag
-#define DEBUG
+//#define DEBUG
 
 /* Macro to make conditional DEBUG more terse
  * Usage: elog(String); output can be found in console */
@@ -122,6 +122,6 @@ typedef struct {
 
 //helper functions
 static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads);
-
+Datum pg_sheet_fdwConvertSheetNumericToPG(struct PGExcelCell* cell, Oid expectedType);
 
 #endif //pg_sheet_fdw_H

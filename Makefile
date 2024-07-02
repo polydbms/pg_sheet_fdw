@@ -1,9 +1,9 @@
 EXTENSION = pg_sheet_fdw
 MODULE_big = pg_sheet_fdw
 DATA = pg_sheet_fdw--0.1.sql
-OBJS = src/pg_sheet_fdw.o src/ParserInterface.o submodules/SheetReader-r/src/XlsxFile.o submodules/SheetReader-r/src/XlsxSheet.o submodules/SheetReader-r/src/miniz/miniz.o
+OBJS = src/pg_sheet_fdw.o src/ParserInterface.o submodules/sheetreader/src/XlsxFile.o submodules/sheetreader/src/XlsxSheet.o submodules/sheetreader/src/miniz/miniz.o
 PG_LIBS = -lpq
-PG_CPPFLAGS = -I./include -I./submodules/SheetReader-r/src
+PG_CPPFLAGS = -I./include -I./submodules/sheetreader/src
 PG_CFLAGS = -I./include
 
 ifdef DEBUG
