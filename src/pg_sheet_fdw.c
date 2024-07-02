@@ -61,7 +61,7 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     List *fdw_private;
     Datum rowCountDate = UInt64GetDatum(rowCount);
     Datum batchSizeDate = UInt64GetDatum(batchSize);
-    fdw_private = list_make1((void *) rowCount);
+    fdw_private = list_make1((void *) rowCountDate);
     fdw_private = lappend(fdw_private, (void *) batchSizeDate);
     baserel->fdw_private = fdw_private;
 }

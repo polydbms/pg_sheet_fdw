@@ -9,3 +9,5 @@
 **/*.o
 **/*.so
 **/*.bc
+
+test/ParserInterfaceTest/output

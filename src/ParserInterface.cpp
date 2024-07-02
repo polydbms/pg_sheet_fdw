@@ -129,7 +129,7 @@ void dropTable(unsigned int tableOID){
 
 // memory of string has to be freed afterwards!
 char* readDynamicString(unsigned int tableOID, unsigned long long stringIndex){
-    return strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(stringIndex).c_str());
+    return strdup(ParserInterfaceSettingsMap[tableOID].file->getDynamicString(0,stringIndex).c_str());
 }
 
 // memory of string has to be freed afterwards!
