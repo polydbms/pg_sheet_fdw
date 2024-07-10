@@ -51,7 +51,7 @@ void printRow(unsigned long columnCount, unsigned int tableID){
 
 void testOneSheet(){
     unsigned int id = 0;
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id, 5);
     if(!success){
         printf("Register did not succeed!\n");
         return;
@@ -71,7 +71,7 @@ void testOneSheet(){
 }
 
 void testGetDynamicStringInOneCall(const char* filepath, unsigned int id){
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepath, "", id);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepath, "", id, 5);
     if(!success){
         printf("Register did not succeed!\n");
         return;
@@ -123,14 +123,14 @@ void testGetDynamicStringInOneCall(const char* filepath, unsigned int id){
 void testTwoSheetSimultan(){
     unsigned int id1 = 0;
     unsigned int id2 = 155;
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id1);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id1, 5);
     if(!success){
         printf("Register did not succeed!\n");
         return;
     }
     else printf("Register 1 succeeded!\n");
 
-    success = registerExcelFileAndSheetAsTable(filepaths[1], "", id2);
+    success = registerExcelFileAndSheetAsTable(filepaths[1], "", id2, 8);
     if(!success){
         printf("Register did not succeed!\n");
         freePaths(2);
@@ -164,6 +164,7 @@ void printUsage(){
     printf("    1 for reading a given sheet with copying of datastructures between c and c++\n");
     printf("    2 for reading 2 sheets interleaved\n");
     printf("    3 for reading a sheet with less copying and pointer magic\n");
+    printf("    4 for reading multiple sheets in succession (option 1 multiple times) list the filepaths\n");
     exit(0);
 }
 

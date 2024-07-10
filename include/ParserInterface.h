@@ -6,7 +6,7 @@
 #define PG_SHEET_FDW_PARSERINTERFACE_H
 
 // debug flag
-#define PARSERINTERFACEDEBUG
+//#define PARSERINTERFACEDEBUG
 
 #ifdef PARSERINTERFACEDEBUG
 #define debug_print(...) printf(__VA_ARGS__)

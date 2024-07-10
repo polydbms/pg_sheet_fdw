@@ -18,7 +18,7 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         settings.sheetName = sheetName;
 
 
-        debug_print("[%s] Setting thread number.\n", __func__);
+        debug_print("[%s] Setting thread number:", __func__);
         // set number of threads for Sheet Reader
         settings.num_threads = numberOfThreads;
         if (settings.num_threads < 1) {
@@ -36,6 +36,7 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
             settings.num_threads = 1;
             settings.parallel = false;
         }
+        debug_print("%d\n", settings.num_threads);
 
 
         debug_print("[%s] Building file object.\n", __func__);
@@ -53,7 +54,9 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         // for interleaved, both sheet & strings need additional thread for decompression (meaning min is 2)
         int act_num_threads = settings.num_threads - settings.parallel * 2 - (settings.num_threads > 1);
         if (act_num_threads <= 0) act_num_threads = 1;
+        debug_print("[%s] Setting interleaving threads.\n", __func__);
         bool success = fsheet->interleaved(settings.skip_rows, settings.skip_columns, act_num_threads);
+        debug_print("[%s] Finalizing sheet object.\n", __func__);
         file->finalize();
 
 
@@ -66,7 +69,8 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
 
             return ParserInterfaceSettingsMap[tableOID].sheet->mDimension.second;
         }
-    } catch (...) {
+    } catch (const std::exception& e) {
+        std::cerr << "Caught exception: " << e.what() << std::endl;
         return 0;
     }
 }
