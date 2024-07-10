@@ -50,12 +50,19 @@ Datum pg_sheet_fdw_handler(PG_FUNCTION_ARGS){
 void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid foreigntableid){
     char *filepath;
     char *sheetname;
-    unsigned long batchSize = 100;
+    unsigned long batchSize = 0;
     int numberOfThreads = -1;
     pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize, &numberOfThreads);
     unsigned long rowCount = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid, numberOfThreads);
     elog_debug("[%s] Got row count: %lu", __func__, rowCount);
     baserel->rows = (double) rowCount;
+
+    // set baseline batchsize to have 101 batches, if batchsize not set and at least a size of 1000.
+    if(!batchSize){
+        batchSize = rowCount/100;
+        if(batchSize < 1000) batchSize = 1000;
+        elog_debug("[%s] BatchSize not set, using base batchSize of: %lu", __func__, batchSize);
+    }
 
     // store rowcount for later usage
     List *fdw_private;
@@ -120,13 +127,15 @@ Datum pg_sheet_fdwConvertSheetNumericToPG(struct PGExcelCell* cell, Oid expected
             else if(data < -2147483648) data = -2147483648;
             return Int32GetDatum(data);
         case (700): // real
-            return Float4GetDatum(cell->data.real);
+            return Float4GetDatum((float4)cell->data.real);
         case (701): // double precision
-            return Float8GetDatum(cell->data.real);
+            return Float8GetDatum((float8)cell->data.real);
         case (1700): // numeric/decimal
-            return DirectFunctionCall1(float8_numeric, Float8GetDatum(cell->data.real));
+            return DirectFunctionCall1(float8_numeric, Float8GetDatum((float8)cell->data.real));
         default:
-            elog_debug("Unreachable path reached?");
+            ereport(ERROR,
+                    (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+                            errmsg("[%s] unsupported data type!", __func__ )));
             return 0;
     }
 }
@@ -137,10 +146,10 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
     MemoryContext oldContext = MemoryContextSwitchTo(state->context);
 
     // debug print the state
-    elog_debug("[%s] state debug id: %u, column count: %u, rows left: %lu, rows prefetched: %u, rows read: %u, next batchIndex: %lu", __func__, state->tableID, state->columnCount, state->rowsLeft, state->rowsRead, state->rowsPrefetched, state->batchIndex );
+    //elog_debug("[%s] state debug id: %u, column count: %u, rows left: %lu, rows prefetched: %lu, rows read: %lu, next batchIndex: %lu", __func__, state->tableID, state->columnCount, state->rowsLeft, state->rowsRead, state->rowsPrefetched, state->batchIndex );
     unsigned long prefetchCount = state->batchSize;
     if(state->rowsLeft < state->batchSize) prefetchCount = state->rowsLeft;
-    elog_debug("[%s] Pallocating %lu Bytes memory for %lu rows.", __func__, sizeof(Datum) * prefetchCount * state->columnCount, prefetchCount);
+    //elog_debug("[%s] Pallocating %lu Bytes memory for %lu rows.", __func__, sizeof(Datum) * prefetchCount * state->columnCount, prefetchCount);
     // allocate new memory in the scan state at the next batch pointer.
     state->isnull[state->batchIndex] = (bool*) palloc(sizeof(bool) * prefetchCount * state->columnCount);
     state->cells[state->batchIndex] = (Datum*) palloc(sizeof(Datum) * prefetchCount * state->columnCount);
@@ -153,7 +162,7 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
         if(columnCount == 0) break;
         // columnCount valid?
         if(columnCount != state->columnCount){
-            elog_debug("[%s] invalid column count in sheet cell!", __func__);
+            //elog_debug("[%s] invalid column count in sheet cell!", __func__);
             return 0;
         }
         // fill tuple with cells
@@ -213,20 +222,20 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
                 case (1042):
                 case (1043):
                     if(cell->type == T_STRING || cell->type == T_STRING_INLINE){
-                        elog_debug("[%s] Got static string!", __func__);
+                        //elog_debug("[%s] Got static string!", __func__);
                         c = readDynamicString(state->tableID, cell->data.stringIndex);
                     } else if(cell->type == T_STRING_REF) {
-                        elog_debug("[%s] Got dynamic string!", __func__);
+                        //elog_debug("[%s] Got dynamic string!", __func__);
                         c = readStaticString(state->tableID, cell->data.stringIndex);
                     } else {
                         elog_debug("[%s] Mismatching type!", __func__);
                         state->isnull[state->batchIndex][currentRow+i] = true;
                         break;
                     }
-                    elog_debug("[%s] Row %lu Cell %lu with string: %s with length: %d", __func__, rowsPrefetched, i, c, strlen(c));
+                    //elog_debug("[%s] Row %lu Cell %lu with string: %s with length: %lu", __func__, rowsPrefetched, i, c, strlen(c));
                     state->cells[state->batchIndex][currentRow+i] = CStringGetTextDatum(c);
                     state->isnull[state->batchIndex][currentRow+i] = false;
-                    elog_debug("[%s] Freeing string that got converted to a Datum!", __func__);
+                    //elog_debug("[%s] Freeing string that got converted to a Datum!", __func__);
                     free(c);
                     break;
                 default:
@@ -234,7 +243,7 @@ int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
             }
         }
     }
-    elog_debug("[%s] Fetched %lu rows", __func__, rowsPrefetched);
+    //elog_debug("[%s] Fetched %lu rows", __func__, rowsPrefetched);
 
     // switch memory context back
     MemoryContextSwitchTo(oldContext);
@@ -327,7 +336,7 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
 
     // need more rows prefetched?
     if(state->rowsRead >= state->rowsPrefetched){
-        elog_debug("[%s] No more rows left. Calling Prefetch function", __func__ );
+        //elog_debug("[%s] No more rows left. Calling Prefetch function", __func__ );
         int t = pg_sheet_fdwPrefetchRows(state);
         if(!t){
             return NULL;
@@ -335,7 +344,7 @@ TupleTableSlot *pg_sheet_fdwIterateForeignScan(ForeignScanState *node){
     }
 
     // build tuple from already fetched rows and increment read counter
-    elog_debug("[%s] Storing tuple in TupleTableSlot from batch %lu at index %lu", __func__, state->batchIndex-1, state->rowsRead );
+//    elog_debug("[%s] Storing tuple in TupleTableSlot from batch %lu at index %lu", __func__, state->batchIndex-1, state->rowsRead );
     TupleTableSlot *slot = node->ss.ss_ScanTupleSlot;
     ExecClearTuple(slot);
     // virtual tuple
@@ -367,7 +376,9 @@ void pg_sheet_fdwReScanForeignScan(ForeignScanState *node){elog_debug("%s",__fun
  */
 void pg_sheet_fdwEndForeignScan(ForeignScanState *node){
     elog_debug("[%s] Dropping sheet in ParserInterface", __func__);
-    dropTable(((pg_sheet_scanstate *)(node->fdw_state))->tableID);
+    pg_sheet_scanstate *state = node->fdw_state;
+    dropTable(state->tableID);
+    MemoryContextDelete(state->context);
 }
 
 /*
@@ -410,6 +421,9 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
     options = list_concat(options, f_table->options);
     options = list_concat(options, f_server->options);
 
+    bool foundSheet = false;
+    bool foundPath = false;
+
     /* Loop through the options, and get the server/port */
     foreach(lc, options)
     {
@@ -418,12 +432,14 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
         if (strcmp(def->defname, "filepath") == 0)
         {
             *filepath = defGetString(def);
+            foundPath = true;
             elog_debug("[%s] Got filepath with value: %s", __func__, *filepath);
         }
 
         if (strcmp(def->defname, "sheetname") == 0)
         {
             *sheetname = defGetString(def);
+            foundSheet = true;
             elog_debug("[%s] Got sheetname with value: %s", __func__, *sheetname);
         }
 
@@ -437,8 +453,20 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
         if (strcmp(def->defname, "numberofthreads") == 0)
         {
             long customnumberofthreads = GetInt64Option(def);
-            if(customnumberofthreads > 0 && customnumberofthreads <= 10) *numberOfThreads = customnumberofthreads;
-            elog_debug("[%s] Got number of threads with value: %lu", __func__, *numberOfThreads);
+            if(customnumberofthreads > 0 && customnumberofthreads <= 10) {
+                *numberOfThreads = customnumberofthreads;
+                elog_debug("[%s] Got number of threads with value: %d", __func__, *numberOfThreads);
+            }
         }
+    }
+
+    if(!foundPath) ereport(ERROR,
+                           (errcode(ERRCODE_FDW_OPTION_NAME_NOT_FOUND),
+                                   errmsg("missing mandatory option \"filepath\"" )));
+    if(!foundSheet){
+        elog_debug("[%s] Found no sheetname, using default \"\"!", __func__, *sheetname);
+        *sheetname = palloc(sizeof(char));
+        const char *empty = "";
+        strcpy(*sheetname, empty);
     }
 }

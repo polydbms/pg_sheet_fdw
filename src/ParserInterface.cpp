@@ -9,14 +9,16 @@
  */
 unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads){
     try {
-        // first check, if already registered on the id. Also check for same names if already registered.
+        // TODO first check, if already registered on the id. Also check for same names if already registered.
 
-
+        debug_print("[%s] Start registering.\n", __func__);
         // then register with standard settings
         SheetReaderSettings settings;
         settings.filePath = pathToFile;
         settings.sheetName = sheetName;
 
+
+        debug_print("[%s] Setting thread number:", __func__);
         // set number of threads for Sheet Reader
         settings.num_threads = numberOfThreads;
         if (settings.num_threads < 1) {
@@ -34,11 +36,16 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
             settings.num_threads = 1;
             settings.parallel = false;
         }
+        debug_print("%d\n", settings.num_threads);
 
+
+        debug_print("[%s] Building file object.\n", __func__);
         std::shared_ptr<XlsxFile> file = std::make_shared<XlsxFile>(settings.filePath);
         file->mParallelStrings = settings.parallel;
         file->parseSharedStrings();
 
+
+        debug_print("[%s] Building sheet object.\n", __func__);
         std::shared_ptr<XlsxSheet> fsheet = (settings.sheetName == "") ? std::make_shared<XlsxSheet>(file->getSheet(1))
                                                                        : std::make_shared<XlsxSheet>(
                         file->getSheet(settings.sheetName));
@@ -47,9 +54,13 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         // for interleaved, both sheet & strings need additional thread for decompression (meaning min is 2)
         int act_num_threads = settings.num_threads - settings.parallel * 2 - (settings.num_threads > 1);
         if (act_num_threads <= 0) act_num_threads = 1;
+        debug_print("[%s] Setting interleaving threads.\n", __func__);
         bool success = fsheet->interleaved(settings.skip_rows, settings.skip_columns, act_num_threads);
+        debug_print("[%s] Finalizing sheet object.\n", __func__);
         file->finalize();
 
+
+        debug_print("[%s] Finished.\n", __func__);
         if (!success) return 0;
         else {
             settings.file = file;
@@ -58,7 +69,8 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
 
             return ParserInterfaceSettingsMap[tableOID].sheet->mDimension.second;
         }
-    } catch (...) {
+    } catch (const std::exception& e) {
+        std::cerr << "Caught exception: " << e.what() << std::endl;
         return 0;
     }
 }
@@ -114,6 +126,7 @@ PGExcelCell ParserConvertToPGCell(const XlsxCell& cell, unsigned int tableOID){
         case CellType::T_BOOLEAN:
             cCell.data.boolean = cell.data.boolean;
             break;
+        case CellType::T_SKIP:
         case CellType::T_NONE:
         case CellType::T_ERROR:
             break;
