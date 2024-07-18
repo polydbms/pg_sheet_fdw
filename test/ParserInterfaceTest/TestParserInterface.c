@@ -7,6 +7,7 @@
 
 char ** filepaths;
 int pathscount = 0;
+int skipRows = 0;
 
 void freePaths(){
     for(int i = 0;i < pathscount; i++){
@@ -23,27 +24,27 @@ void printRow(unsigned long columnCount, unsigned int tableID){
             case T_STRING:
             case T_STRING_INLINE:
                 c = readDynamicString(tableID, cell.data.stringIndex);
-                //printf("Cell %lu with content: %s\n", i, c);
+                printf("Cell %lu with content: %s\n", i, c);
                 free(c);
                 break;
             case T_STRING_REF:
                 c = readStaticString(tableID, cell.data.stringIndex);
-                //printf("Cell %lu with content: %s\n", i, c);
+                printf("Cell %lu with content: %s\n", i, c);
                 free(c);
                 break;
             case T_BOOLEAN:
-                //printf("Cell %lu with boolean: ", i);
-//                if(cell.data.boolean) printf("TRUE\n");
-//                else printf("FALSE\n");
+                printf("Cell %lu with boolean: ", i);
+                if(cell.data.boolean) printf("TRUE\n");
+                else printf("FALSE\n");
                 break;
             case T_NUMERIC:
-                //printf("Cell %lu with number: %f\n", i, cell.data.real);
+                printf("Cell %lu with number: %f\n", i, cell.data.real);
                 break;
             case T_DATE:
-                //printf("Cell %lu with date: %f\n", i, cell.data.real);
+                printf("Cell %lu with date: %f\n", i, cell.data.real);
                 break;
             default:
-                //printf("Cell %lu with no content? Code: %d\n", i, cell.type);
+                printf("Cell %lu with no content? Code: %d\n", i, cell.type);
                 break;
         }
     }
@@ -51,7 +52,7 @@ void printRow(unsigned long columnCount, unsigned int tableID){
 
 void testOneSheet(){
     unsigned int id = 0;
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id, 5);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id, 5, skipRows);
     if(!success){
         printf("Register did not succeed!\n");
         return;
@@ -60,18 +61,18 @@ void testOneSheet(){
 
     unsigned int rownumber = 1;
     unsigned long columnCount = startNextRow(id);
-    //printf("NextRow column count: %lu\n", columnCount);
+    printf("NextRow column count: %lu\n", columnCount);
     while(columnCount != 0) {
-        printRow(columnCount, id);
         printf("Row number: %d\n", rownumber++);
+        printRow(columnCount, id);
         columnCount = startNextRow(id);
-        //printf("NextRow column count: %lu\n", columnCount);
+        printf("NextRow column count: %lu\n", columnCount);
     }
     dropTable(id);
 }
 
 void testGetDynamicStringInOneCall(const char* filepath, unsigned int id){
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepath, "", id, 5);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepath, "", id, 5, skipRows);
     if(!success){
         printf("Register did not succeed!\n");
         return;
@@ -123,14 +124,14 @@ void testGetDynamicStringInOneCall(const char* filepath, unsigned int id){
 void testTwoSheetSimultan(){
     unsigned int id1 = 0;
     unsigned int id2 = 155;
-    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id1, 5);
+    long unsigned int success = registerExcelFileAndSheetAsTable(filepaths[0], "", id1, 5, skipRows);
     if(!success){
         printf("Register did not succeed!\n");
         return;
     }
     else printf("Register 1 succeeded!\n");
 
-    success = registerExcelFileAndSheetAsTable(filepaths[1], "", id2, 8);
+    success = registerExcelFileAndSheetAsTable(filepaths[1], "", id2, 8, skipRows);
     if(!success){
         printf("Register did not succeed!\n");
         freePaths(2);

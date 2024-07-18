@@ -52,7 +52,8 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     char *sheetname;
     unsigned long batchSize = 0;
     int numberOfThreads = -1;
-    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize, &numberOfThreads);
+    int skipRows = 0;
+    pg_sheet_fdwGetOptions(foreigntableid, &filepath, &sheetname, &batchSize, &numberOfThreads, &skipRows);
     unsigned long rowCount = registerExcelFileAndSheetAsTable(filepath, sheetname, foreigntableid, numberOfThreads);
     elog_debug("[%s] Got row count: %lu", __func__, rowCount);
     baserel->rows = (double) rowCount;
@@ -68,8 +69,10 @@ void pg_sheet_fdwGetForeignRelSize(PlannerInfo *root, RelOptInfo *baserel, Oid f
     List *fdw_private;
     Datum rowCountDate = UInt64GetDatum(rowCount);
     Datum batchSizeDate = UInt64GetDatum(batchSize);
+    Datum skipRowsDate = Int32GetDatum(skipRows);
     fdw_private = list_make1((void *) rowCountDate);
     fdw_private = lappend(fdw_private, (void *) batchSizeDate);
+    fdw_private = lappend(fdw_private, (void *) skipRowsDate);
     baserel->fdw_private = fdw_private;
 }
 
@@ -281,6 +284,7 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
     List* fdw_private = ((ForeignScan *)node->ss.ps.plan)->fdw_private;
     Datum rowCount = (Datum) linitial(fdw_private);
     Datum batchSize = (Datum) list_nth(fdw_private, 1);
+    int skipRows = DatumGetInt32((Datum) list_nth(fdw_private, 2));
     state->rowsLeft = DatumGetUInt64(rowCount);
     state->batchSize = DatumGetUInt64(batchSize);
 
@@ -289,6 +293,10 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
     // get table id (used for unique identifier in the parserinterface)
     state->tableID = node->ss.ss_currentRelation->rd_id;
     elog_debug("[%s] Foreign table Oid: %u",__func__, state->tableID);
+
+    for(;skipRows>0;skipRows--){
+        startNextRow(state->tableID);
+    }
 
     // read number of columns and column types
     TupleDesc td = RelationGetDescr(node->ss.ss_currentRelation);
@@ -404,7 +412,7 @@ GetInt64Option(DefElem *def)
  * Fetches values from OPTIONS in Foreign Server and Table registration.
  */
 static void
-pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads)
+pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads, int* skipRows)
 {
     ForeignTable	*f_table;
     ForeignServer	*f_server;
@@ -456,6 +464,14 @@ pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, un
             if(customnumberofthreads > 0 && customnumberofthreads <= 10) {
                 *numberOfThreads = customnumberofthreads;
                 elog_debug("[%s] Got number of threads with value: %d", __func__, *numberOfThreads);
+            }
+        }
+
+        if (strcmp(def->defname, "skiprows") == 0){
+            long customSkipRows = GetInt64Option(def);
+            if(customSkipRows > 0 && customSkipRows <= 2147483648) {
+                *skipRows = customSkipRows;
+                elog_debug("[%s] Skipping %d rows", __func__, *skipRows);
             }
         }
     }

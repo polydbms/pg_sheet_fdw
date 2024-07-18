@@ -32,7 +32,7 @@ struct PGExcelCell {
 };
 
 extern int getTestInt();
-extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads);
+extern unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const char *sheetName, unsigned int tableOID, int numberOfThreads, int skipRows);
 extern unsigned long startNextRow(unsigned int tableOID);
 extern struct PGExcelCell getNextCell(unsigned int tableOID);
 struct PGExcelCell *getNextCellCast(unsigned int tableOID);

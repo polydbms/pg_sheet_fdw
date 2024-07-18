@@ -70,9 +70,10 @@ DROP EXTENSION IF EXISTS pg_sheet_fdw CASCADE;
 
 ### Options
 
-| Name        | Description                                                                        |                     Default                     | Mandatory |
-|:------------|:-----------------------------------------------------------------------------------|:-----------------------------------------------:|:---------:|
-| `filepath`  | Absolute path of the Excel file                                                    |                                                 |    yes    |
-| `sheetname` | Name of the Excel Sheet to read                                                    |               First Sheet in file               |    no     |
-| `numberofthreads`          | Sets the number of Sheetreader worker threads. Does not influence the fdw threads. | Defaults to sane number based on current system |    no     |
-| `batchsize`          | Sets the size of prefetch batches in the fdw.                                      |       Defaults to a size for 101 batches        |    no     |
+| Name              | Description                                                                        |                     Default                     | Mandatory |
+|:------------------|:-----------------------------------------------------------------------------------|:-----------------------------------------------:|:---------:|
+| `filepath`        | Absolute path of the Excel file                                                    |                                                 |    yes    |
+| `sheetname`       | Name of the Excel Sheet to read                                                    |               First Sheet in file               |    no     |
+| `skiprows`        | Skips the first n rows. Useful for skipping header rows.                           |                        0                        |    no     |
+| `numberofthreads` | Sets the number of Sheetreader worker threads. Does not influence the fdw threads. | Defaults to sane number based on current system |    no     |
+| `batchsize`       | Sets the size of prefetch batches in the fdw.                                      |       Defaults to a size for 101 batches        |    no     |

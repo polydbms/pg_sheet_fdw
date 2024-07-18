@@ -121,7 +121,7 @@ typedef struct {
 } pg_sheet_scanstate;
 
 //helper functions
-static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads);
+static void pg_sheet_fdwGetOptions(Oid foreigntableid, char **filepath, char **sheetname, unsigned long* batchSize, int* numberOfThreads, int* skipRows);
 Datum pg_sheet_fdwConvertSheetNumericToPG(struct PGExcelCell* cell, Oid expectedType);
 
 #endif //pg_sheet_fdw_H

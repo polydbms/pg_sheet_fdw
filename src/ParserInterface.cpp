@@ -17,7 +17,6 @@ unsigned long registerExcelFileAndSheetAsTable(const char *pathToFile, const cha
         settings.filePath = pathToFile;
         settings.sheetName = sheetName;
 
-
         debug_print("[%s] Setting thread number:", __func__);
         // set number of threads for Sheet Reader
         settings.num_threads = numberOfThreads;
@@ -81,7 +80,8 @@ unsigned long startNextRow(unsigned int tableOID){
                 std::pair<size_t, std::vector<XlsxCell>>(ParserInterfaceSettingsMap[tableOID].sheet->nextRow()));
         ParserInterfaceSettingsMap[tableOID].cellIt = 0;
         return ParserInterfaceSettingsMap[tableOID].currentRow->second.size();
-    } catch (...) {
+    } catch (const std::exception& e) {
+        std::cerr << "Caught exception: " << e.what() << std::endl;
         return 0;
     }
 }
