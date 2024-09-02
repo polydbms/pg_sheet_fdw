@@ -2,6 +2,8 @@
 
 This Foreign Data Wrapper gives Postgresql access to SheetReader, which is a fast Excel sheet reader. It enables Postgresql to access local .xlsx files (Excel Sheets) as foreign tables. This code is tested with PostgreSQL Server 13, but probably works for newer versions too.
 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ## Prerequisites
 
 ### Submodules
