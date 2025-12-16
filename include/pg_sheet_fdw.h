@@ -24,7 +24,9 @@
 #include "utils/rel.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
+#if PG_VERSION_NUM < 160000
 #include "utils/int8.h"
+#endif
 
 #include "catalog/pg_foreign_server.h"
 #include "catalog/pg_foreign_table.h"
