@@ -398,11 +398,15 @@ GetInt64Option(DefElem *def)
     int64 result;
     char *str_val = defGetString(def);
 
+#if PG_VERSION_NUM >= 160000
+    result = pg_strtoint64(str_val);
+#else
     if (!scanint8(str_val, true, &result))
         ereport(ERROR,
                 (errcode(ERRCODE_INVALID_PARAMETER_VALUE),
                         errmsg("invalid value for option \"%s\": \"%s\"",
                                def->defname, str_val)));
+#endif
 
     return result;
 }
