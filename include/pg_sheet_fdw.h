@@ -24,7 +24,7 @@
 #include "utils/rel.h"
 #include "utils/array.h"
 #include "utils/builtins.h"
-#if PG_VERSION_NUM < 160000
+#if PG_VERSION_NUM < 150000
 #include "utils/int8.h"
 #endif
 

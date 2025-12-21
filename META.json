@@ -1,0 +1,47 @@
+{
+    "name": "pg_sheet_fdw",
+    "abstract": "foreign data wrapper for access to SheetReader",
+    "description": "This Foreign Data Wrapper gives Postgresql access to SheetReader, which is a fast Excel sheet reader. It enables Postgresql to access local .xlsx files (Excel Sheets) as foreign tables.",
+    "version": "0.1.0",
+    "maintainer": "Harry",
+    "license": "mit",
+    "provides": {
+        "pg_sheet_fdw": {
+            "abstract": "foreign data wrapper for access to SheetReader",
+            "file": "pg_sheet_fdw--0.1.sql",
+            "docfile": "README.md",
+            "version": "0.1.0"
+        }
+    },
+    "prereqs": {
+        "runtime": {
+            "requires": {
+                "PostgreSQL": "13.0.0"
+            },
+            "recommends": {
+                "PostgreSQL": "16.0.0"
+            }
+        }
+    },
+    "resources": {
+        "bugtracker": {
+            "web": "https://github.com/polydbms/pg_sheet_fdw/issues"
+        },
+        "repository": {
+            "url": "git://github.com/polydbms/pg_sheet_fdw.git",
+            "web": "https://github.com/polydbms/pg_sheet_fdw",
+            "type": "git"
+        }
+    },
+    "generated_by": "Midhun KV",
+    "meta-spec": {
+        "version": "1.0.0",
+        "url": "https://pgxn.org/meta/spec.txt"
+    },
+    "tags": [
+        "fdw",
+        "excel",
+        "xlsx",
+        "foreign data wrapper"
+    ]
+}

@@ -1,0 +1,8 @@
+# Exclude development and CI/CD files from PGXN bundle
+.gitignore export-ignore
+.gitattributes export-ignore
+.gitmodules export-ignore
+.github export-ignore
+docker export-ignore
+*.sh export-ignore
+pg_sheet_fdw.so export-ignore

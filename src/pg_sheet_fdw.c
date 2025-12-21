@@ -144,7 +144,7 @@ Datum pg_sheet_fdwConvertSheetNumericToPG(struct PGExcelCell* cell, Oid expected
 }
 
 // returns 0 if no new rows prefetched, 1 if at least one row prefetched
-int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
+static int pg_sheet_fdwPrefetchRows(pg_sheet_scanstate* state){
     // switch to memory context
     MemoryContext oldContext = MemoryContextSwitchTo(state->context);
 
@@ -321,7 +321,7 @@ void pg_sheet_fdwBeginForeignScan(ForeignScanState *node, int eflags){
 
     // prefetch first batch
     elog_debug("[%s] Calling Prefetch function",__func__);
-    int t = pg_sheet_fdwPrefetchRows(state);
+    pg_sheet_fdwPrefetchRows(state);
 
     // store scan state pointer
     node->fdw_state = (void*) state;
@@ -392,13 +392,13 @@ void pg_sheet_fdwEndForeignScan(ForeignScanState *node){
 /*
  * Read an options value and convert it to long. Throw error if it can't.
  */
-int64
+static int64
 GetInt64Option(DefElem *def)
 {
     int64 result;
     char *str_val = defGetString(def);
 
-#if PG_VERSION_NUM >= 160000
+#if PG_VERSION_NUM >= 150000
     result = pg_strtoint64(str_val);
 #else
     if (!scanint8(str_val, true, &result))
