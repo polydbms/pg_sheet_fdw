@@ -18,3 +18,6 @@ include $(PGXS)
 $(OBJS): CFLAGS += $(PERMIT_DECLARATION_AFTER_STATEMENT)
 
 PG_SHEET_FDW_AFTER_COMPILATION_TESTS:
+
+installcheck:
+	cd test && ./test_fdw_runall.sh

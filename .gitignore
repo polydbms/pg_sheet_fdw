@@ -10,4 +10,7 @@
 **/*.so
 **/*.bc
 
+# Ignore PGXN bundle files
+*.zip
+
 test/ParserInterfaceTest/output

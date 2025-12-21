@@ -34,9 +34,44 @@ make USE_PGXS=1 install
 You eventually need elevated privileges.
 These commands compile PG_Sheet and copie all relevant files into the respective folders of your local PostgreSQL Server installation.
 
-## Build Docker Image
+## Development Scripts
 
-To get a Docker Image with PG_Sheet, run the script "compile_In_Docker.sh". The script builds a Docker Image tagged "pg_sheet_fdw" with PostgreSQL Server 13 and PG_Sheet installed, starts a Container with tag "pg_sheet_fdw_test_environment" and runs test queries from the /test directory. Afterward, the Container stays running for further inspection and usage.
+This repository includes three bash scripts to help with development and testing:
+
+### 1. `compile_In_Docker.sh`
+Builds Docker images with PostgreSQL and pg_sheet_fdw installed, then runs tests.
+- Creates Docker images for PostgreSQL 13 and 16
+- Starts containers and runs test queries from `/test` directory
+- Containers remain running for further inspection
+- Useful for testing in isolated environments
+
+```bash
+./compile_In_Docker.sh
+```
+
+### 2. `local_pgxn_test.sh`
+Runs PGXN-style tests locally using the official `pgxn/pgxn-tools` Docker image.
+- Tests the extension on PostgreSQL 13
+- Validates build and installation
+- Runs regression tests
+- Matches the GitHub Actions CI workflow
+
+```bash
+./local_pgxn_test.sh
+```
+
+### 3. `bundle.sh`
+Creates a PGXN release bundle (zip file) for uploading to the official PGXN registry.
+- Validates `META.json`
+- Creates a release zip file (e.g., `pg_sheet_fdw-0.1.0.zip`)
+- Excludes development files (CI/CD, Docker, etc.)
+- Ready for upload to [PGXN Manager](https://manager.pgxn.org/)
+
+```bash
+./bundle.sh
+```
+
+> **Note**: Commit `.gitattributes` before running `bundle.sh` to ensure development files are properly excluded from the bundle.
 
 ## Test
 
