@@ -73,6 +73,42 @@ Creates a PGXN release bundle (zip file) for uploading to the official PGXN regi
 
 > **Note**: Commit `.gitattributes` before running `bundle.sh` to ensure development files are properly excluded from the bundle.
 
+## Version Management
+
+When releasing a new version of the extension, you must update the version number in **four files** to maintain consistency:
+
+### Files to Update
+
+1. **`META.json`** (3 locations):
+   ```json
+   {
+     "version": "X.Y.Z",           // Line 5: Main version
+     "provides": {
+       "pg_sheet_fdw": {
+         "file": "pg_sheet_fdw--X.Y.Z.sql",  // Line 11: SQL filename
+         "version": "X.Y.Z"         // Line 13: Provides version
+       }
+     }
+   }
+   ```
+
+2. **`pg_sheet_fdw.control`**:
+   ```
+   default_version = 'X.Y.Z'
+   ```
+
+3. **`Makefile`**:
+   ```makefile
+   DATA = pg_sheet_fdw--X.Y.Z.sql
+   ```
+
+4. **SQL file**: Rename the file itself:
+   ```bash
+   git mv pg_sheet_fdw--OLD.sql pg_sheet_fdw--X.Y.Z.sql
+   ```
+
+> **Important**: All version numbers must match exactly, including the SQL filename, or PostgreSQL installation will fail.
+
 ## Test
 
 In the /test directory are small Excel Sheets for testing. The script "/test/test_fdw_runall.sh" executes basic functioning tests on the local PostgreSQL Server. It calls `psql --echo-errors -v ON_ERROR_STOP=on -f ` on all sql test files. The command can be modified if local user credentials are needed. Also keep in mind, that the postgres user needs reading permission on all sheets.

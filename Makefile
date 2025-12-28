@@ -1,6 +1,6 @@
 EXTENSION = pg_sheet_fdw
 MODULE_big = pg_sheet_fdw
-DATA = pg_sheet_fdw--0.1.sql
+DATA = pg_sheet_fdw--0.1.2.sql
 OBJS = src/pg_sheet_fdw.o src/ParserInterface.o submodules/sheetreader/src/XlsxFile.o submodules/sheetreader/src/XlsxSheet.o submodules/sheetreader/src/miniz/miniz.o
 PG_LIBS = -lpq
 PG_CPPFLAGS = -I./include -I./submodules/sheetreader/src
